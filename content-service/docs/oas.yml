@@ -1,0 +1,655 @@
+openapi: 3.0.3
+info:
+  title: Content Service API
+  version: 1.0.0
+  description: API para gestión de dominios, skills y contenidos educativos.
+
+servers:
+  - url: /content-service
+    description: Base path detrás del API Gateway
+
+tags:
+  - name: Domains
+  - name: Skills
+  - name: ContentItems
+
+paths:
+  /domains:
+    get:
+      tags: [Domains]
+      summary: Listar dominios
+      parameters:
+        - in: query
+          name: code
+          schema:
+            type: string
+          description: Filtro por código exacto del dominio
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Lista de dominios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageDomain'
+    post:
+      tags: [Domains]
+      summary: Crear dominio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DomainInput'
+      responses:
+        '201':
+          description: Dominio creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Domain'
+
+  /domains/{id}:
+    get:
+      tags: [Domains]
+      summary: Obtener dominio por ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dominio encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Domain'
+        '404':
+          description: Dominio no encontrado
+    put:
+      tags: [Domains]
+      summary: Actualizar dominio
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DomainInput'
+      responses:
+        '200':
+          description: Dominio actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Domain'
+        '404':
+          description: Dominio no encontrado
+    delete:
+      tags: [Domains]
+      summary: Eliminar dominio
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Eliminado
+        '409':
+          description: No se puede eliminar (tiene skills asociados)
+
+  /skills:
+    get:
+      tags: [Skills]
+      summary: Listar skills
+      parameters:
+        - in: query
+          name: domainId
+          schema:
+            type: string
+            format: uuid
+          description: Filtrar por dominio
+        - in: query
+          name: code
+          schema:
+            type: string
+          description: Filtrar por código (contiene)
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Búsqueda por nombre/descripcion
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Lista de skills
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageSkill'
+    post:
+      tags: [Skills]
+      summary: Crear skill
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SkillInput'
+      responses:
+        '201':
+          description: Skill creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Skill'
+
+  /skills/{id}:
+    get:
+      tags: [Skills]
+      summary: Obtener skill por ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Skill encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Skill'
+        '404':
+          description: Skill no encontrada
+    put:
+      tags: [Skills]
+      summary: Actualizar skill
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SkillInput'
+      responses:
+        '200':
+          description: Skill actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Skill'
+        '404':
+          description: Skill no encontrada
+    delete:
+      tags: [Skills]
+      summary: Eliminar skill
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Eliminada
+        '409':
+          description: No se puede eliminar (tiene dependencias)
+
+  /skills/{id}/prerequisites:
+    get:
+      tags: [Skills]
+      summary: Listar prerequisitos de una skill
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de prerequisitos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Skill'
+        '404':
+          description: Skill no encontrada
+    put:
+      tags: [Skills]
+      summary: Reemplazar prerequisitos de una skill
+      description: >
+        Reemplaza el conjunto completo de prerequisitos por los IDs indicados.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+                format: uuid
+      responses:
+        '204':
+          description: Prerequisitos actualizados
+        '404':
+          description: Skill no encontrada
+
+  /content-items:
+    get:
+      tags: [ContentItems]
+      summary: Listar items de contenido
+      parameters:
+        - in: query
+          name: domainId
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: skillId
+          schema:
+            type: string
+            format: uuid
+          description: Filtrar por skill asociada
+        - in: query
+          name: type
+          schema:
+            type: string
+          description: lesson, quiz, practice, video, etc.
+        - in: query
+          name: active
+          schema:
+            type: boolean
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Lista de contenido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageContentItem'
+    post:
+      tags: [ContentItems]
+      summary: Crear item de contenido
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentItemInput'
+      responses:
+        '201':
+          description: Item creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentItem'
+
+  /content-items/{id}:
+    get:
+      tags: [ContentItems]
+      summary: Obtener item de contenido por ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Item encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentItem'
+        '404':
+          description: Item no encontrado
+    put:
+      tags: [ContentItems]
+      summary: Actualizar item de contenido
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentItemInput'
+      responses:
+        '200':
+          description: Item actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentItem'
+        '404':
+          description: Item no encontrado
+    delete:
+      tags: [ContentItems]
+      summary: Eliminar item de contenido
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Eliminado
+
+  /content-items/{id}/skills:
+    get:
+      tags: [ContentItems]
+      summary: Listar skills asociadas a un item
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de skills asociadas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContentItemSkill'
+        '404':
+          description: Item no encontrado
+    put:
+      tags: [ContentItems]
+      summary: Reemplazar skills asociadas a un item
+      description: Reemplaza completamente las asociaciones skill-item.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/ContentItemSkillInput'
+      responses:
+        '204':
+          description: Asociaciones actualizadas
+        '404':
+          description: Item no encontrado
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    PageMetadata:
+      type: object
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+
+    PageDomain:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/Domain'
+        page:
+          $ref: '#/components/schemas/PageMetadata'
+
+    PageSkill:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/Skill'
+        page:
+          $ref: '#/components/schemas/PageMetadata'
+
+    PageContentItem:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentItem'
+        page:
+          $ref: '#/components/schemas/PageMetadata'
+
+    Domain:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+      required: [id, code, name]
+
+    DomainInput:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+      required: [code, name]
+
+    Skill:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        domainId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        level:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, domainId, code, name]
+
+    SkillInput:
+      type: object
+      properties:
+        domainId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        level:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+      required: [domainId, code, name]
+
+    ContentItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        domainId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          description: lesson, quiz, practice, video, etc.
+        title:
+          type: string
+        description:
+          type: string
+        estimatedMinutes:
+          type: integer
+        difficulty:
+          type: number
+          format: float
+        metadata:
+          type: object
+          additionalProperties: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, domainId, type, title, isActive]
+
+    ContentItemInput:
+      type: object
+      properties:
+        domainId:
+          type: string
+          format: uuid
+        type:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        estimatedMinutes:
+          type: integer
+        difficulty:
+          type: number
+          format: float
+        metadata:
+          type: object
+          additionalProperties: true
+        isActive:
+          type: boolean
+      required: [domainId, type, title]
+
+    ContentItemSkill:
+      type: object
+      properties:
+        skillId:
+          type: string
+          format: uuid
+        weight:
+          type: number
+          format: float
+          default: 1.0
+      required: [skillId]
+
+    ContentItemSkillInput:
+      allOf:
+        - $ref: '#/components/schemas/ContentItemSkill'
+

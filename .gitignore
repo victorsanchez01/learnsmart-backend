@@ -1,0 +1,32 @@
+# IDEs
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.env
+.venv
+
+# Docker / Logs
+*.log
+docker-compose.override.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test Artifacts
+e2e_results*.txt
+*.json

@@ -1,0 +1,770 @@
+openapi: 3.0.3
+info:
+  title: AI Service API
+  version: 1.1.0
+  description: >
+    Servicio interno de IA para:
+    - Generar contenido estándar (lecciones, ítems de evaluación) para content-service/assessment-service.
+    - Generar y ajustar planes de aprendizaje personalizados.
+    - Soportar evaluación adaptativa (siguiente ítem y feedback).
+
+servers:
+  - url: http://ai-service:8000
+    description: Internal AI service
+
+tags:
+  - name: Content
+    description: Generación de contenido estándar (independiente de usuario)
+  - name: Planning
+    description: Generación y ajuste de rutas de aprendizaje
+  - name: Assessment
+    description: Generación de ítems y feedback adaptativo
+
+paths:
+  # ============================================================
+  #            CONTENT  (para content-service)
+  # ============================================================
+  /v1/content/generate-lessons:
+    post:
+      tags: [Content]
+      summary: Generar lecciones estándar para el catálogo
+      operationId: generateLessons
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateLessonsRequest'
+      responses:
+        '200':
+          description: Lecciones generadas correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateLessonsResponse'
+        '400':
+          description: Petición inválida
+        '500':
+          description: Error interno del servicio de IA
+
+  /v1/content/generate-assessment-items:
+    post:
+      tags: [Content]
+      summary: Generar ítems de evaluación estándar (banco de preguntas)
+      operationId: generateAssessmentItems
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateAssessmentItemsRequest'
+      responses:
+        '200':
+          description: Ítems generados correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateAssessmentItemsResponse'
+        '400':
+          description: Petición inválida
+        '500':
+          description: Error interno del servicio de IA
+
+  # ============================================================
+  #            PLANNING  (para planning-service)
+  # ============================================================
+  /v1/plans/generate:
+    post:
+      tags: [Planning]
+      summary: Generar un plan de aprendizaje personalizado
+      operationId: generatePlan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeneratePlanRequest'
+      responses:
+        '200':
+          description: Plan generado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneratePlanResponse'
+        '400':
+          description: Petición inválida
+        '500':
+          description: Error interno del servicio de IA
+
+  /v1/plans/replan:
+    post:
+      tags: [Planning]
+      summary: Reajustar un plan existente en función del progreso del usuario
+      operationId: replan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplanRequest'
+      responses:
+        '200':
+          description: Plan reajustado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplanResponse'
+        '400':
+          description: Petición inválida
+        '500':
+          description: Error interno del servicio de IA
+
+  # ============================================================
+  #            ASSESSMENT  (para assessment-service)
+  # ============================================================
+  /v1/assessments/next-item:
+    post:
+      tags: [Assessment]
+      summary: Obtener el siguiente ítem de evaluación adaptativo
+      operationId: getNextAssessmentItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NextItemRequest'
+      responses:
+        '200':
+          description: Ítem de evaluación sugerido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NextItemResponse'
+        '400':
+          description: Petición inválida
+        '500':
+          description: Error interno del servicio de IA
+
+  /v1/assessments/feedback:
+    post:
+      tags: [Assessment]
+      summary: Generar feedback y refuerzo para una respuesta del usuario
+      operationId: generateFeedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackRequest'
+      responses:
+        '200':
+          description: Feedback generado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackResponse'
+        '400':
+          description: Petición inválida
+        '500':
+          description: Error interno del servicio de IA
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ============================================================
+    #               CONTENT
+    # ============================================================
+    GenerateLessonsRequest:
+      type: object
+      required:
+        - domain
+        - skillIds
+        - nLessons
+      properties:
+        domain:
+          type: string
+          example: math
+        skillIds:
+          type: array
+          items:
+            type: string
+          description: IDs o códigos de skills objetivo
+        level:
+          type: string
+          example: A1
+        difficulty:
+          type: number
+          format: float
+          description: Dificultad media deseada (0.0–1.0)
+        nLessons:
+          type: integer
+          minimum: 1
+        locale:
+          type: string
+          example: es-ES
+        style:
+          type: string
+          description: "Estilo de redacción: 'formal', 'casual', etc."
+        constraints:
+          type: object
+          additionalProperties: true
+          description: Restricciones adicionales (máx palabras, formatos, etc.)
+
+    GenerateLessonsResponse:
+      type: object
+      required:
+        - lessons
+      properties:
+        lessons:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentLessonDraft'
+
+    ContentLessonDraft:
+      type: object
+      required:
+        - tempId
+        - title
+        - body
+      properties:
+        tempId:
+          type: string
+          description: ID lógico; content-service generará su propio UUID
+        domain:
+          type: string
+        skills:
+          type: array
+          items:
+            type: string
+        level:
+          type: string
+        difficulty:
+          type: number
+          format: float
+        title:
+          type: string
+        description:
+          type: string
+        body:
+          type: string
+          description: Contenido completo (Markdown/HTML según metadata)
+        estimatedMinutes:
+          type: integer
+        format:
+          type: string
+          enum: [markdown, html, plain_text]
+        metadata:
+          type: object
+          additionalProperties: true
+
+    GenerateAssessmentItemsRequest:
+      type: object
+      required:
+        - domain
+        - skillIds
+        - nItems
+      properties:
+        domain:
+          type: string
+        skillIds:
+          type: array
+          items:
+            type: string
+        level:
+          type: string
+        difficultyRange:
+          type: object
+          properties:
+            min:
+              type: number
+              format: float
+            max:
+              type: number
+              format: float
+        nItems:
+          type: integer
+          minimum: 1
+        itemType:
+          type: string
+          enum: [multiple_choice, open, numeric, mixed]
+          default: multiple_choice
+        locale:
+          type: string
+          example: es-ES
+        constraints:
+          type: object
+          additionalProperties: true
+
+    GenerateAssessmentItemsResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssessmentItem'
+
+    # ============================================================
+    #               PLANNING
+    # ============================================================
+    GeneratePlanRequest:
+      type: object
+      required:
+        - userId
+        - profile
+        - goals
+        - studyPreferences
+        - contentCatalog
+      properties:
+        userId:
+          type: string
+          format: uuid
+        profile:
+          $ref: '#/components/schemas/UserProfile'
+        goals:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserGoal'
+        studyPreferences:
+          $ref: '#/components/schemas/StudyPreferences'
+        contentCatalog:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentItemSummary'
+        skillState:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillState'
+        constraints:
+          $ref: '#/components/schemas/PlanConstraints'
+        context:
+          type: object
+          additionalProperties: true
+
+    GeneratePlanResponse:
+      type: object
+      required:
+        - plan
+      properties:
+        plan:
+          $ref: '#/components/schemas/LearningPlan'
+        rawModelOutput:
+          type: object
+          additionalProperties: true
+
+    ReplanRequest:
+      type: object
+      required:
+        - userId
+        - currentPlan
+      properties:
+        userId:
+          type: string
+          format: uuid
+        currentPlan:
+          $ref: '#/components/schemas/LearningPlan'
+        updatedSkillState:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillState'
+        recentEvents:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecentEvent'
+        constraints:
+          $ref: '#/components/schemas/PlanConstraints'
+
+    ReplanResponse:
+      type: object
+      required:
+        - plan
+      properties:
+        plan:
+          $ref: '#/components/schemas/LearningPlan'
+        changeSummary:
+          type: string
+
+    UserProfile:
+      type: object
+      properties:
+        displayName:
+          type: string
+        locale:
+          type: string
+        timezone:
+          type: string
+        birthYear:
+          type: integer
+        metadata:
+          type: object
+          additionalProperties: true
+
+    UserGoal:
+      type: object
+      required:
+        - goalId
+        - title
+        - domain
+      properties:
+        goalId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        domain:
+          type: string
+        targetLevel:
+          type: string
+        dueDate:
+          type: string
+          format: date
+        intensity:
+          type: string
+          enum: [minimum, standard, aggressive]
+
+    StudyPreferences:
+      type: object
+      properties:
+        hoursPerWeek:
+          type: number
+        preferredDays:
+          type: array
+          items:
+            type: string
+        preferredSessionMinutes:
+          type: integer
+        contentFormatPriority:
+          type: object
+          additionalProperties:
+            type: number
+        notificationsEnabled:
+          type: boolean
+
+    ContentItemSummary:
+      type: object
+      required:
+        - id
+        - domain
+        - type
+        - title
+      properties:
+        id:
+          type: string
+          format: uuid
+        domain:
+          type: string
+        type:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        estimatedMinutes:
+          type: integer
+        difficulty:
+          type: number
+          format: float
+        skills:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties: true
+
+    SkillState:
+      type: object
+      required:
+        - skillId
+        - mastery
+      properties:
+        skillId:
+          type: string
+        mastery:
+          type: number
+          format: float
+        attempts:
+          type: integer
+        lastUpdated:
+          type: string
+          format: date-time
+
+    PlanConstraints:
+      type: object
+      properties:
+        maxHoursPerWeek:
+          type: number
+        minHoursPerWeek:
+          type: number
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        maxModules:
+          type: integer
+
+    LearningPlan:
+      type: object
+      required:
+        - planId
+        - userId
+        - modules
+      properties:
+        planId:
+          type: string
+        userId:
+          type: string
+          format: uuid
+        goalId:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          enum: [active, draft]
+          default: draft
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        hoursPerWeek:
+          type: number
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanModule'
+
+    PlanModule:
+      type: object
+      required:
+        - moduleId
+        - position
+        - title
+        - activities
+      properties:
+        moduleId:
+          type: string
+        position:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        estimatedHours:
+          type: number
+        targetSkills:
+          type: array
+          items:
+            type: string
+        activities:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanActivity'
+
+    PlanActivity:
+      type: object
+      required:
+        - activityId
+        - position
+        - type
+      properties:
+        activityId:
+          type: string
+        position:
+          type: integer
+        type:
+          type: string
+          enum: [lesson, quiz, practice, review, exam, other]
+        contentRef:
+          type: string
+        estimatedMinutes:
+          type: integer
+        metadata:
+          type: object
+          additionalProperties: true
+
+    RecentEvent:
+      type: object
+      properties:
+        type:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+        payload:
+          type: object
+          additionalProperties: true
+
+    # ============================================================
+    #               ASSESSMENT
+    # ============================================================
+    NextItemRequest:
+      type: object
+      required:
+        - userId
+        - domain
+      properties:
+        userId:
+          type: string
+          format: uuid
+        domain:
+          type: string
+        targetSkills:
+          type: array
+          items:
+            type: string
+        skillState:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillState'
+        recentHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemHistoryEntry'
+        constraints:
+          $ref: '#/components/schemas/AssessmentConstraints'
+
+    NextItemResponse:
+      type: object
+      required:
+        - item
+      properties:
+        item:
+          $ref: '#/components/schemas/AssessmentItem'
+        rationale:
+          type: string
+
+    ItemHistoryEntry:
+      type: object
+      properties:
+        assessmentItemId:
+          type: string
+        isCorrect:
+          type: boolean
+        responseTimeMs:
+          type: integer
+        attemptedAt:
+          type: string
+          format: date-time
+
+    AssessmentConstraints:
+      type: object
+      properties:
+        maxDifficulty:
+          type: number
+        minDifficulty:
+          type: number
+        preferredItemTypes:
+          type: array
+          items:
+            type: string
+
+    AssessmentItem:
+      type: object
+      required:
+        - tempId
+        - type
+        - stem
+      properties:
+        tempId:
+          type: string
+        domain:
+          type: string
+        type:
+          type: string
+          enum: [multiple_choice, open, numeric]
+        stem:
+          type: string
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssessmentOption'
+        difficulty:
+          type: number
+          format: float
+        skills:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties: true
+
+    AssessmentOption:
+      type: object
+      required:
+        - optionId
+        - statement
+      properties:
+        optionId:
+          type: string
+        statement:
+          type: string
+        isCorrect:
+          type: boolean
+        errorTag:
+          type: string
+
+    FeedbackRequest:
+      type: object
+      required:
+        - userId
+        - item
+        - userResponse
+      properties:
+        userId:
+          type: string
+          format: uuid
+        item:
+          $ref: '#/components/schemas/AssessmentItem'
+        userResponse:
+          $ref: '#/components/schemas/UserResponsePayload'
+        skillStateBefore:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillState'
+
+    UserResponsePayload:
+      type: object
+      properties:
+        selectedOptionId:
+          type: string
+        openAnswer:
+          type: string
+        numericAnswer:
+          type: number
+        responseTimeMs:
+          type: integer
+
+    FeedbackResponse:
+      type: object
+      required:
+        - isCorrect
+        - feedbackMessage
+      properties:
+        isCorrect:
+          type: boolean
+        feedbackMessage:
+          type: string
+        remediationSuggestions:
+          type: array
+          items:
+            type: string
+        updatedSkillState:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillState'
+        suggestedNextAction:
+          type: string

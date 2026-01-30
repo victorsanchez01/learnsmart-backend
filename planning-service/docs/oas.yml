@@ -1,0 +1,489 @@
+openapi: 3.0.3
+info:
+  title: Planning Service API
+  version: 1.0.0
+  description: API para gestionar planes de aprendizaje personalizados.
+
+servers:
+  - url: https://planning-service.local
+    description: Planning Service
+
+security:
+  - bearerAuth: []
+
+paths:
+  /plans:
+    post:
+      summary: Crear un nuevo plan de aprendizaje para el usuario autenticado
+      operationId: createPlan
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlanRequest'
+      responses:
+        '201':
+          description: Plan creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningPlanDetail'
+        '400':
+          description: Petición inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      summary: Listar planes del usuario autenticado
+      operationId: listPlans
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [active, completed, cancelled]
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Lista de planes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LearningPlanSummary'
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalElements:
+                    type: integer
+        '401':
+          description: No autorizado
+
+  /plans/{planId}:
+    get:
+      summary: Obtener detalle de un plan
+      operationId: getPlan
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: planId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: includeModules
+          schema:
+            type: boolean
+            default: true
+        - in: query
+          name: includeActivities
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Plan encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningPlanDetail'
+        '404':
+          description: Plan no encontrado
+    patch:
+      summary: Actualizar metadatos de un plan
+      operationId: updatePlan
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: planId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlanRequest'
+      responses:
+        '200':
+          description: Plan actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningPlanDetail'
+        '400':
+          description: Petición inválida
+        '404':
+          description: Plan no encontrado
+
+  /plans/{planId}/replan:
+    post:
+      summary: Replanificar (ajustar) un plan existente usando IA
+      operationId: replan
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: planId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplanRequest'
+      responses:
+        '200':
+          description: Plan replanteado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningPlanDetail'
+        '400':
+          description: Petición inválida
+        '404':
+          description: Plan no encontrado
+        '409':
+          description: No se puede replanificar (estado incompatible)
+
+  /plans/{planId}/modules:
+    get:
+      summary: Listar módulos de un plan
+      operationId: listModules
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: planId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Módulos del plan
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlanModule'
+        '404':
+          description: Plan no encontrado
+
+  /plans/{planId}/modules/{moduleId}:
+    patch:
+      summary: Actualizar estado de un módulo
+      operationId: updateModule
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: planId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: moduleId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateModuleRequest'
+      responses:
+        '200':
+          description: Módulo actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanModule'
+        '404':
+          description: Plan o módulo no encontrado
+
+  /plans/{planId}/activities:
+    get:
+      summary: Listar actividades de un plan
+      operationId: listActivities
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: planId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Actividades del plan
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlanActivity'
+        '404':
+          description: Plan no encontrado
+
+  /plans/{planId}/activities/{activityId}:
+    patch:
+      summary: Actualizar estado de una actividad
+      operationId: updateActivity
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: planId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: activityId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateActivityRequest'
+      responses:
+        '200':
+          description: Actividad actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanActivity'
+        '404':
+          description: Plan o actividad no encontrada
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LearningPlanSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        goalId:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          enum: [active, completed, cancelled]
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+          nullable: true
+        hoursPerWeek:
+          type: number
+          format: float
+          nullable: true
+        generatedBy:
+          type: string
+          enum: [ai, manual]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    LearningPlanDetail:
+      allOf:
+        - $ref: '#/components/schemas/LearningPlanSummary'
+        - type: object
+          properties:
+            modules:
+              type: array
+              items:
+                $ref: '#/components/schemas/PlanModule'
+
+    PlanModule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        planId:
+          type: string
+          format: uuid
+        position:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        estimatedHours:
+          type: number
+          format: float
+          nullable: true
+        status:
+          type: string
+          enum: [pending, in_progress, done, skipped]
+        targetSkills:
+          type: array
+          items:
+            type: string
+        activities:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanActivity'
+
+    PlanActivity:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        moduleId:
+          type: string
+          format: uuid
+        position:
+          type: integer
+        activityType:
+          type: string
+          enum: [lesson, quiz, practice, exam, other]
+        status:
+          type: string
+          enum: [pending, in_progress, done, skipped]
+        contentRef:
+          type: string
+          description: Identificador o referencia que el ai-service usa para reconstruir el contenido
+        estimatedMinutes:
+          type: integer
+          nullable: true
+
+    CreatePlanRequest:
+      type: object
+      required:
+        - goalId
+      properties:
+        goalId:
+          type: string
+          format: uuid
+        startDate:
+          type: string
+          format: date
+          nullable: true
+        endDate:
+          type: string
+          format: date
+          nullable: true
+        hoursPerWeek:
+          type: number
+          format: float
+          nullable: true
+        constraints:
+          type: object
+          description: Restricciones adicionales para el motor de IA
+          additionalProperties: true
+
+    UpdatePlanRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [active, completed, cancelled]
+        endDate:
+          type: string
+          format: date
+          nullable: true
+        hoursPerWeek:
+          type: number
+          format: float
+          nullable: true
+
+    ReplanRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          description: Motivo de la replanificación (opcional, para trazabilidad)
+        constraints:
+          type: object
+          description: Nuevas restricciones/parámetros para IA
+          additionalProperties: true
+
+    UpdateModuleRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending, in_progress, done, skipped]
+
+    UpdateActivityRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending, in_progress, done, skipped]
+        overrideEstimatedMinutes:
+          type: integer
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+

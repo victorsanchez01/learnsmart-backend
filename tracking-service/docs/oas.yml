@@ -1,0 +1,241 @@
+openapi: 3.0.3
+info:
+  title: tracking-service API
+  description: API para registrar y consultar eventos de aprendizaje.
+  version: 1.0.0
+
+servers:
+  - url: https://tracking-service.local
+    description: Tracking Service
+
+paths:
+  /events:
+    post:
+      summary: Registrar un nuevo evento de aprendizaje
+      operationId: createEvent
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventCreateRequest'
+      responses:
+        '201':
+          description: Evento creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: Petición inválida
+        '401':
+          description: No autorizado
+
+    get:
+      summary: Listar eventos de aprendizaje
+      operationId: listEvents
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: userId
+          schema:
+            type: string
+            format: uuid
+          description: Filtrar por usuario
+        - in: query
+          name: eventType
+          schema:
+            type: string
+          description: Filtrar por tipo de evento
+        - in: query
+          name: entityType
+          schema:
+            type: string
+          description: Filtrar por tipo de entidad asociada
+        - in: query
+          name: entityId
+          schema:
+            type: string
+            format: uuid
+          description: Filtrar por id de entidad asociada
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date-time
+          description: Fecha/hora mínima (ISO-8601) de occurredAt
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date-time
+          description: Fecha/hora máxima (ISO-8601) de occurredAt
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Número de página (0-based)
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          description: Tamaño de página
+      responses:
+        '200':
+          description: Lista paginada de eventos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventPage'
+        '401':
+          description: No autorizado
+
+  /events/{id}:
+    get:
+      summary: Obtener un evento por id
+      operationId: getEventById
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Evento encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          description: No autorizado
+        '404':
+          description: Evento no encontrado
+
+    delete:
+      summary: Eliminar un evento (borrado lógico u operativo)
+      operationId: deleteEvent
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Evento eliminado
+        '401':
+          description: No autorizado
+        '404':
+          description: Evento no encontrado
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          example: activity_completed
+        entityType:
+          type: string
+          example: plan_activity
+        entityId:
+          type: string
+          format: uuid
+          nullable: true
+        occurredAt:
+          type: string
+          format: date-time
+        payload:
+          type: object
+          additionalProperties: true
+          description: Datos adicionales específicos del evento
+      required:
+        - id
+        - userId
+        - eventType
+        - occurredAt
+
+    EventCreateRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: >
+            Identificador del usuario. Puede omitirse si se deriva del JWT
+            en el backend.
+        eventType:
+          type: string
+          example: activity_completed
+        entityType:
+          type: string
+          example: plan_activity
+        entityId:
+          type: string
+          format: uuid
+          nullable: true
+        occurredAt:
+          type: string
+          format: date-time
+          description: Fecha/hora del evento; si se omite, se usará la actual.
+        payload:
+          type: object
+          additionalProperties: true
+          description: Datos adicionales específicos del evento
+      required:
+        - eventType
+
+    EventPage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        page:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 50
+        totalElements:
+          type: integer
+          example: 123
+        totalPages:
+          type: integer
+          example: 3
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+

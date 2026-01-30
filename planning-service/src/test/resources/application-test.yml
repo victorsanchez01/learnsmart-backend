@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: planning-service-test
+  datasource:
+    url: jdbc:h2:mem:planning_db_test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    generate-ddl: true
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
+  sql:
+    init:
+      mode: never
+
+eureka:
+  client:
+    enabled: false

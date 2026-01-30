@@ -1,0 +1,61 @@
+flowchart LR
+    subgraph CLIENTE
+        FE[Frontend Web/Movil]
+    end
+
+    KC[Keycloak IdP]
+    APIGW[API Gateway]
+    EU[Eureka]
+
+    subgraph MS
+        PRF[profile-service]
+        CNT[content-service]
+        PLAN[planning-service]
+        ASMT[assessment-service]
+        TRK[tracking-service opcional]
+    end
+
+    subgraph AI
+        AIP[ai-service Python]
+    end
+
+    PRFDB[(profile-db)]
+    CNTDB[(content-db)]
+    PLANDB[(planning-db)]
+    ASMTDB[(assessment-db)]
+    TRKDB[(tracking-db)]
+
+    FE -->|Login/OIDC| KC
+    KC -->|JWT| FE
+    FE -->|JWT| APIGW
+
+    APIGW --> PRF
+    APIGW --> CNT
+    APIGW --> PLAN
+    APIGW --> ASMT
+    APIGW --> TRK
+    APIGW --> EU
+
+    PRF --> EU
+    CNT --> EU
+    PLAN --> EU
+    ASMT --> EU
+    TRK --> EU
+
+    PRF --> PRFDB
+    CNT --> CNTDB
+    PLAN --> PLANDB
+    ASMT --> ASMTDB
+    TRK --> TRKDB
+
+    PLAN -->|generar/ajustar plan| AIP
+    ASMT -->|generar items/feedback| AIP
+
+    PRF -->|perfil/objetivos| PLAN
+    CNT -->|catalogo/skills| PLAN
+    ASMT -->|estado dominio| PLAN
+    PLAN -->|ruta aprendizaje| FE
+
+    FE -->|respuestas/progreso| ASMT
+    ASMT -->|eventos| TRK
+

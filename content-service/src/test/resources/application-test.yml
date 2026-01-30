@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: content-service-test
+  datasource:
+    url: jdbc:h2:mem:content_db_test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    generate-ddl: true
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
+  sql:
+    init:
+      mode: never # Let Hibernate create-drop handle it, or use schema.sql compatible with H2 if careful. 
+      # Actually, our schema.sql is Postgres specific (timestamptz, jsonb, text[]). 
+      # Hibernate ddl-auto create-drop is safer for H2 unless we have H2 specific schema.
+      # Let's disable sql.init to avoid syntax errors in H2 from the postgres schema.sql
+
+eureka:
+  client:
+    enabled: false

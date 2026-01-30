@@ -1,0 +1,658 @@
+openapi: 3.0.3
+info:
+  title: Assessment Service API
+  version: 1.0.0
+  description: API para evaluación adaptativa y estado de dominio por usuario.
+
+servers:
+  - url: https://assessment-service.local/api
+    description: Assessment Service
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Sessions
+    description: Gestión de sesiones de evaluación
+  - name: Items
+    description: Banco de ítems de evaluación
+  - name: Responses
+    description: Respuestas de usuario
+  - name: Mastery
+    description: Estado de dominio por skill
+
+paths:
+
+  /health:
+    get:
+      summary: Healthcheck
+      operationId: getHealth
+      responses:
+        '200':
+          description: OK
+
+  # ---------- SESSIONS ----------
+
+  /assessment-sessions:
+    post:
+      tags: [Sessions]
+      summary: Crear sesión de evaluación
+      operationId: createAssessmentSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentSessionCreateRequest'
+      responses:
+        '201':
+          description: Sesión creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentSession'
+        '400':
+          description: Petición inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags: [Sessions]
+      summary: Listar sesiones de un usuario
+      operationId: listAssessmentSessions
+      parameters:
+        - in: query
+          name: userId
+          schema:
+            type: string
+            format: uuid
+          required: true
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [in_progress, completed, cancelled]
+      responses:
+        '200':
+          description: Lista de sesiones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AssessmentSession'
+
+  /assessment-sessions/{sessionId}:
+    get:
+      tags: [Sessions]
+      summary: Obtener detalles de sesión
+      operationId: getAssessmentSession
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Sesión encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentSession'
+        '404':
+          description: Sesión no encontrada
+
+    patch:
+      tags: [Sessions]
+      summary: Actualizar estado de sesión
+      operationId: updateAssessmentSession
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [in_progress, completed, cancelled]
+      responses:
+        '200':
+          description: Sesión actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentSession'
+        '404':
+          description: Sesión no encontrada
+
+  /assessment-sessions/{sessionId}/next-item:
+    post:
+      tags: [Sessions]
+      summary: Obtener siguiente ítem adaptativo
+      operationId: getNextItem
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        description: Contexto adicional opcional (por ejemplo, skip del usuario)
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Ítem siguiente o fin de sesión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NextItemResponse'
+        '404':
+          description: Sesión no encontrada
+
+  # ---------- RESPONSES ----------
+
+  /assessment-sessions/{sessionId}/responses:
+    post:
+      tags: [Responses]
+      summary: Enviar respuesta de usuario a un ítem
+      operationId: submitItemResponse
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitResponseRequest'
+      responses:
+        '201':
+          description: Respuesta registrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserItemResponseWithFeedback'
+        '400':
+          description: Petición inválida
+        '404':
+          description: Sesión o ítem no encontrados
+
+    get:
+      tags: [Responses]
+      summary: Listar respuestas de una sesión
+      operationId: listSessionResponses
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de respuestas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserItemResponse'
+
+  # ---------- ITEMS (ADMIN / BACKOFFICE) ----------
+
+  /assessment-items:
+    get:
+      tags: [Items]
+      summary: Listar ítems (paginado)
+      operationId: listAssessmentItems
+      parameters:
+        - in: query
+          name: domainId
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: skillId
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: origin
+          schema:
+            type: string
+            enum: [static, ai_generated]
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Lista de ítems
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AssessmentItem'
+
+    post:
+      tags: [Items]
+      summary: Crear ítem estático
+      operationId: createAssessmentItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentItemCreateRequest'
+      responses:
+        '201':
+          description: Ítem creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentItem'
+
+  /assessment-items/{itemId}:
+    get:
+      tags: [Items]
+      summary: Obtener ítem
+      operationId: getAssessmentItem
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ítem encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentItem'
+        '404':
+          description: Ítem no encontrado
+
+    patch:
+      tags: [Items]
+      summary: Actualizar ítem
+      operationId: updateAssessmentItem
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentItemUpdateRequest'
+      responses:
+        '200':
+          description: Ítem actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentItem'
+        '404':
+          description: Ítem no encontrado
+
+  # ---------- MASTERY ----------
+
+  /users/{userId}/skill-mastery:
+    get:
+      tags: [Mastery]
+      summary: Obtener estado de dominio de todas las skills de un usuario
+      operationId: getUserSkillMastery
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Estado de dominio por skill
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserSkillMastery'
+
+  /users/{userId}/skill-mastery/{skillId}:
+    get:
+      tags: [Mastery]
+      summary: Obtener dominio de una skill concreta
+      operationId: getUserSkillMasteryBySkill
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: skillId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dominio de la skill
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSkillMastery'
+        '404':
+          description: Sin registro de esa skill para el usuario
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    AssessmentSessionCreateRequest:
+      type: object
+      required: [userId, type]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [diagnostic, practice, exam]
+        planId:
+          type: string
+          format: uuid
+          nullable: true
+        moduleId:
+          type: string
+          format: uuid
+          nullable: true
+        config:
+          type: object
+          additionalProperties: true
+
+    AssessmentSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        type:
+          type: string
+        status:
+          type: string
+          enum: [in_progress, completed, cancelled]
+        planId:
+          type: string
+          format: uuid
+          nullable: true
+        moduleId:
+          type: string
+          format: uuid
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        config:
+          type: object
+          additionalProperties: true
+
+    AssessmentItemCreateRequest:
+      type: object
+      required: [domainId, type, stem]
+      properties:
+        domainId:
+          type: string
+          format: uuid
+        origin:
+          type: string
+          enum: [static, ai_generated]
+          default: static
+        type:
+          type: string
+          enum: [multiple_choice, open, numeric]
+        stem:
+          type: string
+        difficulty:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        metadata:
+          type: object
+          additionalProperties: true
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillRef'
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssessmentItemOption'
+
+    AssessmentItemUpdateRequest:
+      type: object
+      properties:
+        stem:
+          type: string
+        difficulty:
+          type: number
+          format: float
+        metadata:
+          type: object
+          additionalProperties: true
+        isActive:
+          type: boolean
+
+    AssessmentItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        domainId:
+          type: string
+          format: uuid
+        origin:
+          type: string
+        type:
+          type: string
+        stem:
+          type: string
+        difficulty:
+          type: number
+          format: float
+        metadata:
+          type: object
+          additionalProperties: true
+        isActive:
+          type: boolean
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillRef'
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssessmentItemOption'
+
+    AssessmentItemOption:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+        statement:
+          type: string
+        isCorrect:
+          type: boolean
+        errorTag:
+          type: string
+          nullable: true
+        feedbackTemplate:
+          type: string
+          nullable: true
+
+    SkillRef:
+      type: object
+      properties:
+        skillId:
+          type: string
+          format: uuid
+        weight:
+          type: number
+          format: float
+          default: 1.0
+
+    NextItemResponse:
+      type: object
+      properties:
+        done:
+          type: boolean
+          description: true si no hay más ítems en la sesión
+        item:
+          $ref: '#/components/schemas/AssessmentItem'
+        session:
+          $ref: '#/components/schemas/AssessmentSession'
+
+    SubmitResponseRequest:
+      type: object
+      required: [assessmentItemId]
+      properties:
+        assessmentItemId:
+          type: string
+          format: uuid
+        selectedOptionId:
+          type: string
+          format: uuid
+          nullable: true
+        responsePayload:
+          type: object
+          additionalProperties: true
+        responseTimeMs:
+          type: integer
+          nullable: true
+
+    UserItemResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        assessmentItemId:
+          type: string
+          format: uuid
+        selectedOptionId:
+          type: string
+          format: uuid
+          nullable: true
+        responsePayload:
+          type: object
+          additionalProperties: true
+        isCorrect:
+          type: boolean
+        responseTimeMs:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    UserItemResponseWithFeedback:
+      allOf:
+        - $ref: '#/components/schemas/UserItemResponse'
+        - type: object
+          properties:
+            feedback:
+              type: string
+            masteryUpdates:
+              type: array
+              items:
+                $ref: '#/components/schemas/UserSkillMastery'
+
+    UserSkillMastery:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        skillId:
+          type: string
+          format: uuid
+        mastery:
+          type: number
+          format: float
+        attempts:
+          type: integer
+        lastUpdate:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+

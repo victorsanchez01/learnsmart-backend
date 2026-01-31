@@ -6,6 +6,7 @@ import com.learnsmart.assessment.model.UserItemResponse;
 import com.learnsmart.assessment.model.UserItemResponseWithFeedback;
 import com.learnsmart.assessment.model.SubmitResponseRequest;
 import com.learnsmart.assessment.model.AssessmentItem;
+import com.learnsmart.assessment.model.UserSkillMastery;
 import java.util.UUID;
 import java.util.List;
 
@@ -23,4 +24,7 @@ public interface AssessmentSessionService {
     UserItemResponseWithFeedback submitResponse(UUID sessionId, SubmitResponseRequest request);
 
     List<UserItemResponse> getSessionResponses(UUID sessionId);
+
+    // Mastery Tracking
+    List<UserSkillMastery> getUserSkillMastery(UUID userId);
 }

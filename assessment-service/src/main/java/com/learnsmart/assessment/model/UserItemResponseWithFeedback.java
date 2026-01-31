@@ -13,4 +13,12 @@ import java.util.List;
 public class UserItemResponseWithFeedback extends UserItemResponse {
     private String feedback;
     private List<UserSkillMastery> masteryUpdates;
+
+    public void setMasteryUpdates(List<UserSkillMastery> masteryUpdates) {
+        this.masteryUpdates = masteryUpdates;
+    }
+
+    public void setFeedback(String feedback) {
+        this.feedback = feedback;
+    }
 }

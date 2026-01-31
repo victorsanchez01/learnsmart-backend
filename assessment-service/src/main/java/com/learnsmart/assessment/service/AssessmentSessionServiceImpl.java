@@ -134,4 +134,9 @@ public class AssessmentSessionServiceImpl implements AssessmentSessionService {
     public List<UserItemResponse> getSessionResponses(UUID sessionId) {
         return responseRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
     }
+
+    @Override
+    public List<UserSkillMastery> getUserSkillMastery(UUID userId) {
+        return masteryRepository.findByIdUserId(userId);
+    }
 }

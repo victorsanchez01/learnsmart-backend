@@ -1,7 +1,10 @@
 package com.learnsmart.planning.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import java.util.UUID;
@@ -12,7 +15,10 @@ import java.util.List;
 
 @Entity
 @Table(name = "learning_plans")
-@Data
+@Getter
+@Setter
+@ToString(exclude = { "modules", "replans" })
+@EqualsAndHashCode(exclude = { "modules", "replans" })
 @NoArgsConstructor
 @AllArgsConstructor
 public class LearningPlan {

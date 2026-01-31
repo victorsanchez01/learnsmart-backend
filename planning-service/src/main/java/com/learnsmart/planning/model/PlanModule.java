@@ -1,7 +1,10 @@
 package com.learnsmart.planning.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import java.util.UUID;
@@ -13,7 +16,10 @@ import java.util.List;
 @Table(name = "plan_modules", uniqueConstraints = {
         @UniqueConstraint(columnNames = { "plan_id", "position" })
 })
-@Data
+@Getter
+@Setter
+@ToString(exclude = { "plan", "activities" })
+@EqualsAndHashCode(exclude = { "plan", "activities" })
 @NoArgsConstructor
 @AllArgsConstructor
 public class PlanModule {
@@ -24,6 +30,7 @@ public class PlanModule {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "plan_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private LearningPlan plan;
 
     @Column(nullable = false)
@@ -41,24 +48,7 @@ public class PlanModule {
     @Column(nullable = false, length = 20)
     private String status = "pending";
 
-    @ElementCollection(fetch = FetchType.EAGER) // Simple storage for validating logical flow
-    // Storing as simple CSV string or string array in H2 might require generic
-    // handling.
-    // For H2 compatibility, avoiding Postgres-specific arrays.
-    // Best practice here for portability: Use a separate join table or a CSV
-    // converter.
-    // Given the 'TEXT[]' in Postgres DDL, let's assume we read/write as explicit
-    // array if using Hibernate Types,
-    // OR we use a simple List<String> which Hibernate might map to varbinary or
-    // similar.
-    // TO BE SAFE: @Column(columnDefinition = "TEXT") and manual converter?
-    // Let's try @ElementCollection with List<String> it usually works or fails on
-    // array type support.
-    // For now, I will use a simple String with comma-delimited values to guarantee
-    // H2 support given TEXT[] complications.
-    // WAIT: Schema says TEXT[]. If I map it to String in Java, I can save as
-    // "skill1,skill2".
-    // It's robust for now.
+    @Convert(converter = StringListConverter.class)
     @Column(name = "target_skills")
     private List<String> targetSkills;
 

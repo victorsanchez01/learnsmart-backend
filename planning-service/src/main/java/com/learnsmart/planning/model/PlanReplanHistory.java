@@ -1,7 +1,10 @@
 package com.learnsmart.planning.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import java.util.UUID;
@@ -9,7 +12,10 @@ import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "plan_replans_history")
-@Data
+@Getter
+@Setter
+@ToString(exclude = "plan")
+@EqualsAndHashCode(exclude = "plan")
 @NoArgsConstructor
 @AllArgsConstructor
 public class PlanReplanHistory {

@@ -40,30 +40,34 @@ spring:
         - id: content-service
           uri: lb://content-service
           predicates:
-            - Path=/domains/**, /skills/**, /content-items/**
+            - Path=/content/**
           filters:
             - TokenRelay
+            - StripPrefix=1
 
         - id: planning-service
           uri: lb://planning-service
           predicates:
-            - Path=/plans/**
+            - Path=/planning/**
           filters:
             - TokenRelay
+            - StripPrefix=1
 
         - id: assessment-service
           uri: lb://assessment-service
           predicates:
-            - Path=/assessments/**, /users/*/skill-mastery/**
+            - Path=/assessment/**
           filters:
             - TokenRelay
+            - StripPrefix=1
 
         - id: tracking-service
           uri: lb://tracking-service
           predicates:
-            - Path=/events/**
+            - Path=/tracking/**
           filters:
             - TokenRelay
+            - StripPrefix=1
 
   # Security Configuration
   security:

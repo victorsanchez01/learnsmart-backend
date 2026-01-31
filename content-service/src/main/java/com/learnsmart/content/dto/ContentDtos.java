@@ -59,4 +59,10 @@ public class ContentDtos {
         private OffsetDateTime createdAt;
         private OffsetDateTime updatedAt;
     }
+
+    @Data
+    public static class ContentItemSkillInput {
+        private UUID skillId;
+        private Double weight;
+    }
 }

@@ -58,6 +58,24 @@ public class ContentItemController {
                 HttpStatus.CREATED);
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<ContentDtos.ContentItemResponse> getContentItem(@PathVariable UUID id) {
+        ContentItem item = contentService.findById(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Content item not found"));
+        return ResponseEntity.ok(toDto(item));
+    }
+
+    @PostMapping("/{id}/skills")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> addSkills(@PathVariable UUID id,
+            @RequestBody List<ContentDtos.ContentItemSkillInput> inputs) {
+        List<UUID> ids = inputs.stream().map(ContentDtos.ContentItemSkillInput::getSkillId).toList();
+        List<Double> weights = inputs.stream().map(ContentDtos.ContentItemSkillInput::getWeight).toList();
+        contentService.updateSkillAssociations(id, ids, weights);
+        return ResponseEntity.ok().build();
+    }
+
     private ContentDtos.ContentItemResponse toDto(ContentItem item) {
         ContentDtos.ContentItemResponse dto = new ContentDtos.ContentItemResponse();
         dto.setId(item.getId());

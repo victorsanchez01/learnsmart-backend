@@ -36,7 +36,7 @@ public class LearningPlanServiceImpl implements LearningPlanService {
         if (plan.getModules() == null || plan.getModules().isEmpty()) {
             try {
                 // 1. Fetch Profile
-                ExternalDtos.UserProfile profile = profileClient.getProfile(plan.getUserId());
+                ExternalDtos.UserProfile profile = profileClient.getProfile(plan.getUserId().toString());
                 if (profile == null)
                     throw new RuntimeException("Profile not found for user: " + plan.getUserId());
 

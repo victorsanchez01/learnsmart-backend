@@ -22,9 +22,17 @@ public class ProfileServiceImpl {
 
     @Transactional
     public UserProfileResponse registerUser(UserRegistrationRequest request) {
-        // En un escenario real, aquí se llamaría a Keycloak para crear el usuario.
-        // Simularemos que Keycloak nos devuelve un ID
-        String simulatedAuthId = UUID.randomUUID().toString();
+        // Extract auth user ID from JWT token (if available)
+        String authUserId = null;
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof org.springframework.security.oauth2.jwt.Jwt jwt) {
+            authUserId = jwt.getSubject();
+        }
+
+        // Fallback to simulated ID if no JWT present (for testing/legacy)
+        if (authUserId == null) {
+            authUserId = UUID.randomUUID().toString();
+        }
 
         if (profileRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new IllegalArgumentException("Email already exists");
@@ -32,7 +40,7 @@ public class ProfileServiceImpl {
 
         UserProfile profile = UserProfile.builder()
                 .userId(UUID.randomUUID())
-                .authUserId(simulatedAuthId)
+                .authUserId(authUserId)
                 .email(request.getEmail())
                 .displayName(request.getDisplayName())
                 .locale(request.getLocale())
@@ -48,6 +56,13 @@ public class ProfileServiceImpl {
         return profileRepository.findById(userId)
                 .map(this::mapToProfileResponse)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public UserProfileResponse getProfileByAuthId(String authUserId) {
+        return profileRepository.findByAuthUserId(authUserId)
+                .map(this::mapToProfileResponse)
+                .orElseThrow(() -> new IllegalArgumentException("User not found for authUserId: " + authUserId));
     }
 
     // Método auxiliar para buscar por ID de usuario interno (simulo "me" si tuviera

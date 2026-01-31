@@ -24,7 +24,9 @@ public class SecurityConfig {
                         .requestMatchers(antMatcher("/error")).permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {
+                    jwt.jwtAuthenticationConverter(new KeycloakJwtAuthenticationConverter());
                 }));
+        ;
 
         return http.build();
     }

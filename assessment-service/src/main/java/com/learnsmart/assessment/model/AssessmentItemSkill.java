@@ -18,6 +18,7 @@ public class AssessmentItemSkill {
     @EmbeddedId
     private AssessmentItemSkillId id;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("assessmentItemId")
     @JoinColumn(name = "assessment_item_id")

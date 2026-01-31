@@ -1,7 +1,10 @@
 package com.learnsmart.planning.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import java.util.UUID;
@@ -11,7 +14,10 @@ import java.time.OffsetDateTime;
 @Table(name = "plan_activities", uniqueConstraints = {
         @UniqueConstraint(columnNames = { "module_id", "position" })
 })
-@Data
+@Getter
+@Setter
+@ToString(exclude = { "module" })
+@EqualsAndHashCode(exclude = { "module" })
 @NoArgsConstructor
 @AllArgsConstructor
 public class PlanActivity {
@@ -22,6 +28,7 @@ public class PlanActivity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "module_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private PlanModule module;
 
     @Column(nullable = false)

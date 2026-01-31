@@ -6,6 +6,7 @@ import com.learnsmart.content.model.Skill;
 import com.learnsmart.content.repository.ContentItemRepository;
 import com.learnsmart.content.repository.SkillRepository;
 import com.learnsmart.content.repository.DomainRepository;
+import com.learnsmart.content.repository.ContentItemSkillRepository;
 import com.learnsmart.content.client.AiServiceClient;
 import com.learnsmart.content.dto.AiDtos;
 import com.learnsmart.content.model.Domain;
@@ -26,6 +27,7 @@ public class ContentItemServiceImpl implements ContentItemService {
     // explicitly,
     // but JPA Cascade often handles it. For now, focus on core item.
     private final SkillRepository skillRepository;
+    private final ContentItemSkillRepository contentItemSkillRepository;
     private final AiServiceClient aiServiceClient;
     private final DomainRepository domainRepository;
 
@@ -76,10 +78,22 @@ public class ContentItemServiceImpl implements ContentItemService {
     @Override
     @Transactional
     public void updateSkillAssociations(UUID contentItemId, List<UUID> skillIds, List<Double> weights) {
-        // Implementation pending specific Repository for ContentItemSkill or adding
-        // list to ContentItem entity.
-        // For MVP step, we'll mark this as TODO or use a direct native query if needed,
-        // to avoid over-complicating the entity graph right now.
+        ContentItem item = contentItemRepository.findById(contentItemId)
+                .orElseThrow(() -> new RuntimeException("ContentItem not found"));
+
+        for (int i = 0; i < skillIds.size(); i++) {
+            UUID skillId = skillIds.get(i);
+            Double weight = weights.get(i);
+            Skill skill = skillRepository.findById(skillId)
+                    .orElseThrow(() -> new RuntimeException("Skill not found: " + skillId));
+
+            ContentItemSkill cis = new ContentItemSkill();
+            cis.setId(new ContentItemSkill.ContentItemSkillId(contentItemId, skillId));
+            cis.setContentItem(item);
+            cis.setSkill(skill);
+            cis.setWeight(BigDecimal.valueOf(weight));
+            contentItemSkillRepository.save(cis);
+        }
     }
 
     @Override

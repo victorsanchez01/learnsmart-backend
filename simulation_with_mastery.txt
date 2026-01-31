@@ -1,0 +1,38 @@
+=== STARTING REACT LEARNING SIMULATION ===
+[ADMIN] Login successful for admin1
+
+[Admin] Check/Create Domain 'web-dev'...
+  → Response 200 from http://localhost:8762/content/domains?code=web-dev
+  ← Data: [{'id': 'b0fffd1f-5b53-4e73-9b78-40ab87f1fea2', 'code': 'web-dev', 'name': 'Web Development', 'description': 'Frontend, Backend and DevOps'}]
+Domain exists: b0fffd1f-5b53-4e73-9b78-40ab87f1fea2
+  → Response 200 from http://localhost:8762/content/skills?code=html-css
+  ← Data: [{'id': '79b94931-cf4a-4391-a3d8-c2107de8998d', 'domain': {'id': 'b0fffd1f-5b53-4e73-9b78-40ab87f1fea2', 'code': 'web-dev', 'name': 'Web Development', 'description': 'Frontend, Backend and DevOps'}, '...
+Skill html-css exists: 79b94931-cf4a-4391-a3d8-c2107de8998d
+  → Response 200 from http://localhost:8762/content/skills?code=js-es6
+  ← Data: [{'id': '37f5769b-bb51-4656-8232-ce3ff3058602', 'domain': {'id': 'b0fffd1f-5b53-4e73-9b78-40ab87f1fea2', 'code': 'web-dev', 'name': 'Web Development', 'description': 'Frontend, Backend and DevOps'}, '...
+Skill js-es6 exists: 37f5769b-bb51-4656-8232-ce3ff3058602
+  → Response 200 from http://localhost:8762/content/skills?code=react-basics
+  ← Data: [{'id': '188efb6e-a9ec-4131-a3c1-abf825444c00', 'domain': {'id': 'b0fffd1f-5b53-4e73-9b78-40ab87f1fea2', 'code': 'web-dev', 'name': 'Web Development', 'description': 'Frontend, Backend and DevOps'}, '...
+Skill react-basics exists: 188efb6e-a9ec-4131-a3c1-abf825444c00
+
+[Admin] Creating React Lesson...
+  → Response 201 from http://localhost:8762/content/content-items
+  ← Data: {'id': '0564eac4-77a9-4203-8af3-7a906a2ea3c7', 'domain': {'id': 'b0fffd1f-5b53-4e73-9b78-40ab87f1fea2', 'code': 'web-dev', 'name': 'Web Development', 'description': 'Frontend, Backend and DevOps'}, 't...
+  → Response 200 from http://localhost:8762/content/content-items/0564eac4-77a9-4203-8af3-7a906a2ea3c7/skills
+[Admin] Creating React Quiz Question...
+  → Response 503 from http://localhost:8762/assessment/assessment-items
+Request failed: 503 {"timestamp":"2026-01-31T20:34:21.858+00:00","path":"/assessment/assessment-items","status":503,"error":"Service Unavailable","requestId":"eeabfb9b-319"}
+Traceback (most recent call last):
+  File "/mnt/arch_home/hector/projects_from_ubuntu_2025-10-13/unir/TFM/backend/scripts/simulate_react_learning.py", line 380, in <module>
+    run_simulation()
+  File "/mnt/arch_home/hector/projects_from_ubuntu_2025-10-13/unir/TFM/backend/scripts/simulate_react_learning.py", line 177, in run_simulation
+    question = admin.post("/assessment/assessment-items", question_payload)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/arch_home/hector/projects_from_ubuntu_2025-10-13/unir/TFM/backend/scripts/simulate_react_learning.py", line 51, in post
+    return self._handle_response(response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/arch_home/hector/projects_from_ubuntu_2025-10-13/unir/TFM/backend/scripts/simulate_react_learning.py", line 80, in _handle_response
+    response.raise_for_status()
+  File "/usr/lib/python3/dist-packages/requests/models.py", line 1021, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 503 Server Error: Service Unavailable for url: http://localhost:8762/assessment/assessment-items

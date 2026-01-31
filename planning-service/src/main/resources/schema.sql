@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS plan_modules (
     description     TEXT,
     estimated_hours NUMERIC(5,2),
     status          VARCHAR(20) NOT NULL DEFAULT 'pending',
-    target_skills   TEXT[],
+    target_skills   TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (plan_id, position)

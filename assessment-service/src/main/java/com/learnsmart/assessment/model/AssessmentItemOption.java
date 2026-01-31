@@ -17,6 +17,7 @@ public class AssessmentItemOption {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assessment_item_id", nullable = false)
     private AssessmentItem assessmentItem;

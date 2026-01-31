@@ -28,7 +28,7 @@ public class ExternalDtos {
         private String title;
         private String description;
         private String type;
-        private String domain;
+        private Object domain;
     }
 
     // AI Service DTOs

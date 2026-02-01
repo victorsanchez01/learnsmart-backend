@@ -217,4 +217,11 @@ public class ProfileServiceImpl {
                 .notificationsEnabled(p.getNotificationsEnabled())
                 .build();
     }
+
+    public UserProfileResponse findByEmail(String email) {
+        UserProfile profile = profileRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + email));
+        
+        return mapToProfileResponse(profile);
+    }
 }

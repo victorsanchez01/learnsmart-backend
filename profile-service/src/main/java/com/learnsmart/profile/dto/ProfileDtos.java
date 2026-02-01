@@ -113,4 +113,25 @@ public class ProfileDtos {
         private Integer preferredSessionMinutes;
         private Boolean notificationsEnabled;
     }
+
+    @Data
+    @Builder
+    public static class LoginRequest {
+        @Email
+        @NotBlank
+        private String email;
+        
+        @NotBlank
+        private String password;
+    }
+
+    @Data
+    @Builder
+    public static class LoginResponse {
+        private String token;
+        private String type;
+        private String userId;
+        private String email;
+        private String displayName;
+    }
 }

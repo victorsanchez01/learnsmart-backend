@@ -49,3 +49,16 @@ CREATE TABLE IF NOT EXISTS user_badges (
     metadata    JSONB,
     CONSTRAINT uq_user_badge UNIQUE (user_id, badge_id)
 );
+CREATE TABLE IF NOT EXISTS user_study_preferences (
+    user_id                   UUID PRIMARY KEY,
+    hours_per_week            DOUBLE PRECISION,
+    preferred_session_minutes INT,
+    notifications_enabled     BOOLEAN,
+    CONSTRAINT fk_user_study_preferences_user FOREIGN KEY (user_id) REFERENCES user_profiles(user_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_preferred_days (
+    user_id UUID NOT NULL,
+    day     VARCHAR(20),
+    CONSTRAINT fk_user_preferred_days_user FOREIGN KEY (user_id) REFERENCES user_study_preferences(user_id)
+);

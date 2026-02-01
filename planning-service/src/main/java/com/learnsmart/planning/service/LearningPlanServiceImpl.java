@@ -93,7 +93,11 @@ public class LearningPlanServiceImpl implements LearningPlanService {
                             activity.setModule(module);
                             activity.setPosition(actIdx++);
                             activity.setActivityType(actDraft.getType());
-                            activity.setContentRef(actDraft.getContentRef());
+                            String ref = actDraft.getContentRef();
+                            if (ref == null || ref.isBlank()) {
+                                ref = "manual:" + UUID.randomUUID();
+                            }
+                            activity.setContentRef(ref);
                             activity.setEstimatedMinutes(20); // Default
                             activities.add(activity);
                         }

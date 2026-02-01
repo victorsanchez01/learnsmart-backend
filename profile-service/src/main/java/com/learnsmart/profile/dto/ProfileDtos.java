@@ -2,6 +2,7 @@ package com.learnsmart.profile.dto;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.Builder;
@@ -92,5 +93,24 @@ public class ProfileDtos {
         private Boolean isActive;
         private LocalDateTime createdAt;
         private LocalDateTime updatedAt;
+    }
+
+    @Data
+    @Builder
+    public static class UserStudyPreferencesResponse {
+        private UUID userId;
+        private Double hoursPerWeek;
+        private List<String> preferredDays;
+        private Integer preferredSessionMinutes;
+        private Boolean notificationsEnabled;
+    }
+
+    @Data
+    @Builder
+    public static class UserStudyPreferencesUpdate {
+        private Double hoursPerWeek;
+        private List<String> preferredDays;
+        private Integer preferredSessionMinutes;
+        private Boolean notificationsEnabled;
     }
 }

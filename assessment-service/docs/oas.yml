@@ -33,7 +33,7 @@ paths:
 
   # ---------- SESSIONS ----------
 
-  /assessment-sessions:
+  /assessments/sessions:
     post:
       tags: [Sessions]
       summary: Crear sesión de evaluación
@@ -84,7 +84,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/AssessmentSession'
 
-  /assessment-sessions/{sessionId}:
+  /assessments/sessions/{sessionId}:
     get:
       tags: [Sessions]
       summary: Obtener detalles de sesión
@@ -137,7 +137,7 @@ paths:
         '404':
           description: Sesión no encontrada
 
-  /assessment-sessions/{sessionId}/next-item:
+  /assessments/sessions/{sessionId}/next-item:
     post:
       tags: [Sessions]
       summary: Obtener siguiente ítem adaptativo
@@ -169,7 +169,7 @@ paths:
 
   # ---------- RESPONSES ----------
 
-  /assessment-sessions/{sessionId}/responses:
+  /assessments/sessions/{sessionId}/responses:
     post:
       tags: [Responses]
       summary: Enviar respuesta de usuario a un ítem

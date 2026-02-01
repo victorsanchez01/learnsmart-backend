@@ -5,6 +5,8 @@ import com.learnsmart.profile.model.UserGoal;
 import com.learnsmart.profile.model.UserProfile;
 import com.learnsmart.profile.repository.UserGoalRepository;
 import com.learnsmart.profile.repository.UserProfileRepository;
+import com.learnsmart.profile.repository.UserStudyPreferencesRepository;
+import com.learnsmart.profile.model.UserStudyPreferences;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +21,7 @@ public class ProfileServiceImpl {
 
     private final UserProfileRepository profileRepository;
     private final UserGoalRepository goalRepository;
+    private final UserStudyPreferencesRepository preferencesRepository;
 
     @Transactional
     public UserProfileResponse registerUser(UserRegistrationRequest request) {
@@ -144,6 +147,37 @@ public class ProfileServiceImpl {
         goalRepository.delete(goal);
     }
 
+    // --- PREFERENCES ---
+
+    @Transactional(readOnly = true)
+    public UserStudyPreferencesResponse getPreferences(UUID userId) {
+        return preferencesRepository.findById(userId)
+                .map(this::mapToPreferencesResponse)
+                .orElseGet(() -> UserStudyPreferencesResponse.builder()
+                        .userId(userId)
+                        .hoursPerWeek(5.0) // Defaults
+                        .notificationsEnabled(true)
+                        .build());
+    }
+
+    @Transactional
+    public UserStudyPreferencesResponse updatePreferences(UUID userId, UserStudyPreferencesUpdate request) {
+        UserStudyPreferences prefs = preferencesRepository.findById(userId)
+                .orElse(UserStudyPreferences.builder().userId(userId).build());
+
+        if (request.getHoursPerWeek() != null)
+            prefs.setHoursPerWeek(request.getHoursPerWeek());
+        if (request.getPreferredDays() != null)
+            prefs.setPreferredDays(request.getPreferredDays());
+        if (request.getPreferredSessionMinutes() != null)
+            prefs.setPreferredSessionMinutes(request.getPreferredSessionMinutes());
+        if (request.getNotificationsEnabled() != null)
+            prefs.setNotificationsEnabled(request.getNotificationsEnabled());
+
+        prefs = preferencesRepository.save(prefs);
+        return mapToPreferencesResponse(prefs);
+    }
+
     private UserProfileResponse mapToProfileResponse(UserProfile p) {
         return UserProfileResponse.builder()
                 .userId(p.getUserId())
@@ -171,6 +205,16 @@ public class ProfileServiceImpl {
                 .isActive(g.getIsActive())
                 .createdAt(g.getCreatedAt())
                 .updatedAt(g.getUpdatedAt())
+                .build();
+    }
+
+    private UserStudyPreferencesResponse mapToPreferencesResponse(UserStudyPreferences p) {
+        return UserStudyPreferencesResponse.builder()
+                .userId(p.getUserId())
+                .hoursPerWeek(p.getHoursPerWeek())
+                .preferredDays(p.getPreferredDays())
+                .preferredSessionMinutes(p.getPreferredSessionMinutes())
+                .notificationsEnabled(p.getNotificationsEnabled())
                 .build();
     }
 }

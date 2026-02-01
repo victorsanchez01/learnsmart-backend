@@ -114,4 +114,19 @@ public class ProfileController {
         profileService.deleteGoal(getUserId(xUserId), goalId);
         return ResponseEntity.noContent().build();
     }
+
+    // --- PREFERENCES ---
+
+    @GetMapping("/me/preferences")
+    public ResponseEntity<UserStudyPreferencesResponse> getMyPreferences(
+            @RequestHeader(value = "X-User-Id", required = false) String xUserId) {
+        return ResponseEntity.ok(profileService.getPreferences(getUserId(xUserId)));
+    }
+
+    @PutMapping("/me/preferences")
+    public ResponseEntity<UserStudyPreferencesResponse> updateMyPreferences(
+            @RequestHeader(value = "X-User-Id", required = false) String xUserId,
+            @RequestBody UserStudyPreferencesUpdate request) {
+        return ResponseEntity.ok(profileService.updatePreferences(getUserId(xUserId), request));
+    }
 }

@@ -66,6 +66,32 @@ public class ContentItemController {
         return ResponseEntity.ok(toDto(item));
     }
 
+    @PutMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ContentDtos.ContentItemResponse> updateContentItem(@PathVariable UUID id,
+            @RequestBody ContentDtos.ContentItemInput input) {
+        ContentItem c = new ContentItem();
+        c.setType(input.getType());
+        c.setTitle(input.getTitle());
+        c.setDescription(input.getDescription());
+        c.setEstimatedMinutes(input.getEstimatedMinutes());
+        c.setDifficulty(input.getDifficulty());
+        c.setMetadata(input.getMetadata());
+        c.setActive(input.isActive());
+
+        ContentItem updated = contentService.update(id, c)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Content item not found"));
+        return ResponseEntity.ok(toDto(updated));
+    }
+
+    @DeleteMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteContentItem(@PathVariable UUID id) {
+        contentService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{id}/skills")
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> addSkills(@PathVariable UUID id,

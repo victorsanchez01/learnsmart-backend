@@ -38,7 +38,7 @@ public class LearningPlanController {
         return new ResponseEntity<>(planService.findAll(status, page, size), HttpStatus.OK);
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     public ResponseEntity<LearningPlan> updatePlan(@PathVariable UUID id, @RequestBody LearningPlan planUpdates) {
         return new ResponseEntity<>(planService.updatePlan(id, planUpdates), HttpStatus.OK);
     }

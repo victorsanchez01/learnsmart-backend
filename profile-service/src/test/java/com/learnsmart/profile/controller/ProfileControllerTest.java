@@ -206,4 +206,124 @@ class ProfileControllerTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(mockProgress, response.getBody());
     }
+
+    @Test
+    void testUpdateMyPreferences() {
+        UUID userId = UUID.randomUUID();
+        UserStudyPreferencesUpdate request = UserStudyPreferencesUpdate.builder()
+                .hoursPerWeek(10.0).build();
+        UserStudyPreferencesResponse responseDto = UserStudyPreferencesResponse.builder()
+                .hoursPerWeek(10.0).build();
+
+        when(profileService.updatePreferences(userId, request)).thenReturn(responseDto);
+
+        ResponseEntity<UserStudyPreferencesResponse> response = profileController.updateMyPreferences(userId.toString(),
+                request);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(10.0, response.getBody().getHoursPerWeek());
+    }
+
+    @Test
+    void testGetMyAuditLogs() {
+        UUID userId = UUID.randomUUID();
+        UserAuditLogResponse log = UserAuditLogResponse.builder()
+                .action("CREATE").entityType("GOAL").build();
+        when(profileService.getMyAuditLogs(userId, 0, 20)).thenReturn(List.of(log));
+
+        ResponseEntity<List<UserAuditLogResponse>> response = profileController.getMyAuditLogs(userId.toString(), 0,
+                20);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(1, response.getBody().size());
+        assertEquals("CREATE", response.getBody().get(0).getAction());
+    }
+
+    @Test
+    void testPatchGoal() {
+        UUID userId = UUID.randomUUID();
+        UUID goalId = UUID.randomUUID();
+        UserGoalUpdateRequest request = UserGoalUpdateRequest.builder().status("COMPLETED").build();
+        UserGoalResponse responseDto = UserGoalResponse.builder().status("COMPLETED").build();
+
+        when(profileService.updateGoal(userId, goalId, request)).thenReturn(responseDto);
+
+        ResponseEntity<UserGoalResponse> response = profileController.patchGoal(userId.toString(), goalId, request);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("COMPLETED", response.getBody().getStatus());
+    }
+
+    @Test
+    void testMarkGoalAsCompleted() {
+        UUID userId = UUID.randomUUID();
+        UUID goalId = UUID.randomUUID();
+        UserGoalResponse responseDto = UserGoalResponse.builder()
+                .status("completed").completionPercentage(100).build();
+
+        when(profileService.markGoalAsCompleted(userId, goalId)).thenReturn(responseDto);
+
+        ResponseEntity<UserGoalResponse> response = profileController.markGoalAsCompleted(userId.toString(), goalId);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("completed", response.getBody().getStatus());
+        assertEquals(100, response.getBody().getCompletionPercentage());
+    }
+
+    @Test
+    void testUpdateGoalProgress() {
+        UUID userId = UUID.randomUUID();
+        UUID goalId = UUID.randomUUID();
+        UserGoalResponse responseDto = UserGoalResponse.builder()
+                .completionPercentage(75).status("in_progress").build();
+
+        when(profileService.updateGoalProgress(userId, goalId, 75)).thenReturn(responseDto);
+
+        ResponseEntity<UserGoalResponse> response = profileController.updateGoalProgress(userId.toString(), goalId,
+                java.util.Map.of("percentage", 75));
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(75, response.getBody().getCompletionPercentage());
+    }
+
+    @Test
+    void testGetGoalsByStatus() {
+        UUID userId = UUID.randomUUID();
+        UserGoalResponse goal = UserGoalResponse.builder().status("completed").title("Done").build();
+        when(profileService.getGoalsByStatus(userId, "completed")).thenReturn(List.of(goal));
+
+        ResponseEntity<List<UserGoalResponse>> response = profileController.getGoalsByStatus(userId.toString(),
+                "completed");
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(1, response.getBody().size());
+        assertEquals("Done", response.getBody().get(0).getTitle());
+    }
+
+    @Test
+    void testGetMyProgress_ViaJwt() {
+        String authId = "auth-jwt-123";
+        mockSecurityContext(authId);
+
+        com.learnsmart.profile.dto.ProgressDtos.UserProgressResponse mockProgress = com.learnsmart.profile.dto.ProgressDtos.UserProgressResponse
+                .builder()
+                .profile(com.learnsmart.profile.dto.ProgressDtos.ProfileInfo.builder()
+                        .userId(UUID.randomUUID().toString()).build())
+                .build();
+        when(progressService.getConsolidatedProgress(authId)).thenReturn(mockProgress);
+
+        ResponseEntity<com.learnsmart.profile.dto.ProgressDtos.UserProgressResponse> response = profileController
+                .getMyProgress(null);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(progressService).getConsolidatedProgress(authId);
+    }
+
+    @Test
+    void testUpdateGoalProgress_MissingPercentageKey_DefaultsToZero() {
+        UUID userId = UUID.randomUUID();
+        UUID goalId = UUID.randomUUID();
+        UserGoalResponse responseDto = UserGoalResponse.builder().completionPercentage(0).build();
+
+        when(profileService.updateGoalProgress(userId, goalId, 0)).thenReturn(responseDto);
+
+        // Empty map → percentage defaults to 0
+        ResponseEntity<UserGoalResponse> response = profileController.updateGoalProgress(userId.toString(), goalId,
+                java.util.Map.of());
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(0, response.getBody().getCompletionPercentage());
+    }
 }

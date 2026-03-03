@@ -142,4 +142,236 @@ class PlanActivityServiceImplementationTest {
 
         assertThrows(RuntimeException.class, () -> activityService.findById(id));
     }
+    // -------------------------------------------------------------------------
+    // validateStatusTransition — called indirectly via updateActivityStatus
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testUpdateActivityStatus_CompletedToInProgress_ThrowsIllegalArgument() {
+        UUID planId = UUID.randomUUID();
+        UUID activityId = UUID.randomUUID();
+
+        LearningPlan plan = new LearningPlan();
+        plan.setId(planId);
+
+        PlanModule module = new PlanModule();
+        module.setPlan(plan);
+
+        PlanActivity activity = new PlanActivity();
+        activity.setId(activityId);
+        activity.setModule(module);
+        activity.setStatus("completed"); // Current status = completed
+
+        when(activityRepository.findById(activityId)).thenReturn(Optional.of(activity));
+
+        // Trying to move from completed → in_progress should throw
+        assertThrows(IllegalArgumentException.class,
+                () -> activityService.updateActivityStatus(planId, activityId, "in_progress", null));
+    }
+
+    @Test
+    void testUpdateActivityStatus_CompletedToCompleted_IsAllowed() {
+        UUID planId = UUID.randomUUID();
+        UUID activityId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+
+        LearningPlan plan = new LearningPlan();
+        plan.setId(planId);
+        plan.setUserId(UUID.randomUUID().toString());
+        plan.setModules(List.of());
+
+        PlanModule module = new PlanModule();
+        module.setId(moduleId);
+        module.setPlan(plan);
+        module.setStatus("completed"); // already completed
+
+        PlanActivity activity = new PlanActivity();
+        activity.setId(activityId);
+        activity.setModule(module);
+        activity.setStatus("completed");
+
+        when(activityRepository.findById(activityId)).thenReturn(Optional.of(activity));
+        when(activityRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(activityRepository.findByModuleIdOrderByPositionAsc(moduleId)).thenReturn(List.of(activity));
+
+        // completed → completed must NOT throw
+        PlanActivity result = activityService.updateActivityStatus(planId, activityId, "completed", null);
+        assertEquals("completed", result.getStatus());
+    }
+
+    // -------------------------------------------------------------------------
+    // updateModuleCompletionStatus — module already completed (branch not
+    // exercised)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testUpdateActivityStatus_AllCompleted_ModuleAlreadyCompleted_SkipsSave() {
+        UUID planId = UUID.randomUUID();
+        UUID activityId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+
+        LearningPlan plan = new LearningPlan();
+        plan.setId(planId);
+        plan.setUserId(UUID.randomUUID().toString());
+
+        PlanModule module = new PlanModule();
+        module.setId(moduleId);
+        module.setPlan(plan);
+        module.setStatus("completed"); // already completed → no moduleRepository.save expected
+
+        PlanActivity activity = new PlanActivity();
+        activity.setId(activityId);
+        activity.setModule(module);
+        activity.setStatus("pending");
+
+        when(activityRepository.findById(activityId)).thenReturn(Optional.of(activity));
+        when(activityRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(activityRepository.findByModuleIdOrderByPositionAsc(moduleId)).thenReturn(List.of(activity));
+
+        activityService.updateActivityStatus(planId, activityId, "completed", null);
+
+        // Module was already completed → moduleRepository.save must NOT be called again
+        verify(moduleRepository, never()).save(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // updatePlanCompletionStatus — null/empty modules and not-all-completed
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testUpdateActivityStatus_AllCompleted_PlanModulesNull_SkipsPlanSave() {
+        UUID planId = UUID.randomUUID();
+        UUID activityId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+
+        LearningPlan plan = new LearningPlan();
+        plan.setId(planId);
+        plan.setUserId(UUID.randomUUID().toString());
+        plan.setModules(null); // null → updatePlanCompletionStatus must return early
+
+        PlanModule module = new PlanModule();
+        module.setId(moduleId);
+        module.setPlan(plan);
+
+        PlanActivity activity = new PlanActivity();
+        activity.setId(activityId);
+        activity.setModule(module);
+        activity.setStatus("pending");
+
+        when(activityRepository.findById(activityId)).thenReturn(Optional.of(activity));
+        when(activityRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(activityRepository.findByModuleIdOrderByPositionAsc(moduleId)).thenReturn(List.of(activity));
+
+        activityService.updateActivityStatus(planId, activityId, "completed", null);
+
+        verify(planRepository, never()).save(any());
+    }
+
+    @Test
+    void testUpdateActivityStatus_NotAllModulesCompleted_DoesNotCompletePlan() {
+        UUID planId = UUID.randomUUID();
+        UUID activityId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+
+        // Another module is still pending
+        PlanModule pendingModule = new PlanModule();
+        pendingModule.setId(UUID.randomUUID());
+        pendingModule.setStatus("pending");
+
+        LearningPlan plan = new LearningPlan();
+        plan.setId(planId);
+        plan.setUserId(UUID.randomUUID().toString());
+        plan.setStatus("active");
+
+        PlanModule module = new PlanModule();
+        module.setId(moduleId);
+        module.setPlan(plan);
+        plan.setModules(List.of(module, pendingModule)); // one module still pending
+
+        PlanActivity activity = new PlanActivity();
+        activity.setId(activityId);
+        activity.setModule(module);
+        activity.setStatus("pending");
+
+        when(activityRepository.findById(activityId)).thenReturn(Optional.of(activity));
+        when(activityRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(activityRepository.findByModuleIdOrderByPositionAsc(moduleId)).thenReturn(List.of(activity));
+
+        activityService.updateActivityStatus(planId, activityId, "completed", null);
+
+        // Plan must remain active since not all modules are completed
+        assertEquals("active", plan.getStatus());
+        verify(planRepository, never()).save(any());
+    }
+
+    @Test
+    void testUpdateActivityStatus_AllModulesCompleted_CompletesPlan() {
+        UUID planId = UUID.randomUUID();
+        UUID activityId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+
+        LearningPlan plan = new LearningPlan();
+        plan.setId(planId);
+        plan.setUserId(UUID.randomUUID().toString());
+        plan.setStatus("active");
+
+        PlanModule module = new PlanModule();
+        module.setId(moduleId);
+        module.setPlan(plan);
+        // After activity is completed, module will be marked completed too
+        // so the plan's only module list contains this module (will be completed)
+        plan.setModules(List.of(module));
+
+        PlanActivity activity = new PlanActivity();
+        activity.setId(activityId);
+        activity.setModule(module);
+        activity.setStatus("pending");
+
+        when(activityRepository.findById(activityId)).thenReturn(Optional.of(activity));
+        when(activityRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(activityRepository.findByModuleIdOrderByPositionAsc(moduleId)).thenReturn(List.of(activity));
+        when(moduleRepository.save(any(PlanModule.class))).thenAnswer(i -> i.getArgument(0));
+        when(planRepository.save(any(LearningPlan.class))).thenAnswer(i -> i.getArgument(0));
+
+        activityService.updateActivityStatus(planId, activityId, "completed", null);
+
+        // After all activities and modules completed, plan must be completed
+        assertEquals("completed", plan.getStatus());
+        verify(planRepository).save(plan);
+    }
+
+    // -------------------------------------------------------------------------
+    // emitActivityCompletedEvent — completedAt non-null branch
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testUpdateActivityStatus_WithCompletedAt_UsesExistingTimestamp() {
+        UUID planId = UUID.randomUUID();
+        UUID activityId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+
+        LearningPlan plan = new LearningPlan();
+        plan.setId(planId);
+        plan.setUserId(UUID.randomUUID().toString());
+        plan.setModules(List.of());
+
+        PlanModule module = new PlanModule();
+        module.setId(moduleId);
+        module.setPlan(plan);
+
+        PlanActivity activity = new PlanActivity();
+        activity.setId(activityId);
+        activity.setModule(module);
+        activity.setStatus("pending");
+        activity.setCompletedAt(java.time.OffsetDateTime.now().minusHours(1)); // non-null → no fallback
+        activity.setActualMinutesSpent(30);
+
+        when(activityRepository.findById(activityId)).thenReturn(Optional.of(activity));
+        when(activityRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(activityRepository.findByModuleIdOrderByPositionAsc(moduleId)).thenReturn(List.of(activity));
+
+        // Must complete without exception even with non-null completedAt
+        PlanActivity result = activityService.updateActivityStatus(planId, activityId, "completed", null);
+        assertEquals("completed", result.getStatus());
+    }
 }

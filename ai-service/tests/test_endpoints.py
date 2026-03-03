@@ -169,7 +169,7 @@ def test_generate_lessons_with_long_domain():
     
     response = client.post("/v1/contents/lessons", json=request_data)
     assert response.status_code == 400
-    assert "Invalid UUID format" in response.json()["detail"]
+    assert "exceeds maximum length" in response.json()["detail"]
 
 def test_llm_service_error_handling(mock_llm_service):
     """Test that LLM service errors are handled gracefully"""

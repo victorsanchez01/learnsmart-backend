@@ -193,4 +193,200 @@ class ContentItemServiceImplTest {
         verify(aiServiceClient).generateLessons(any());
         verify(contentItemRepository).save(any());
     }
+
+    // -------------------------------------------------------------------------
+    // generateAndSave — null/absent draft fields (type == null, body == null)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testGenerateAndSave_NullDraftFields_UsesDefaults() {
+        UUID domainId = UUID.randomUUID();
+        Domain domain = new Domain();
+        domain.setName("Math");
+
+        when(domainRepository.findById(domainId)).thenReturn(Optional.of(domain));
+
+        AiDtos.ContentLessonDraft draft = AiDtos.ContentLessonDraft.builder()
+                .title("Lesson 2")
+                .description("Desc")
+                .estimatedMinutes(10)
+                .difficulty(null) // → defaults to 0.5
+                .type(null) // → defaults to "lesson"
+                .body(null) // → defaults to ""
+                .build();
+
+        AiDtos.GenerateLessonsResponse response = AiDtos.GenerateLessonsResponse.builder()
+                .lessons(List.of(draft))
+                .build();
+
+        when(aiServiceClient.generateLessons(any())).thenReturn(response);
+        when(contentItemRepository.save(any(ContentItem.class))).thenAnswer(i -> i.getArgument(0));
+
+        List<ContentItem> result = contentItemService.generateAndSave(domainId, 1, "Topic");
+
+        assertEquals("lesson", result.get(0).getType());
+        assertEquals(BigDecimal.valueOf(0.5), result.get(0).getDifficulty());
+    }
+
+    // -------------------------------------------------------------------------
+    // generateAssessments — body from metadata
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testGenerateAssessments_WithMetadataBody_UsesBodyText() {
+        UUID itemId = UUID.randomUUID();
+        Domain domain = new Domain();
+        domain.setName("Physics");
+
+        ContentItem item = new ContentItem();
+        item.setId(itemId);
+        item.setDomain(domain);
+        item.setMetadata(Map.of("body", "Some content body"));
+
+        AiDtos.AssessmentItemDraft aiDraft = AiDtos.AssessmentItemDraft.builder()
+                .question("Q1")
+                .options(List.of("A", "B"))
+                .correctIndex(0)
+                .explanation("Explanation")
+                .difficulty("medium")
+                .build();
+
+        AiDtos.GenerateAssessmentItemsResponse aiResponse = AiDtos.GenerateAssessmentItemsResponse.builder()
+                .items(List.of(aiDraft))
+                .build();
+
+        when(contentItemRepository.findById(itemId)).thenReturn(Optional.of(item));
+        when(aiServiceClient.generateAssessmentItems(any())).thenReturn(aiResponse);
+
+        var result = contentItemService.generateAssessments(itemId, 1);
+
+        assertEquals(1, result.size());
+        assertEquals("Q1", result.get(0).getQuestion());
+        verify(aiServiceClient).generateAssessmentItems(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // generateAssessments — no metadata → falls back to description
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testGenerateAssessments_NoMetadataBody_FallsBackToDescription() {
+        UUID itemId = UUID.randomUUID();
+        Domain domain = new Domain();
+        domain.setName("Chemistry");
+
+        ContentItem item = new ContentItem();
+        item.setId(itemId);
+        item.setDomain(domain);
+        item.setDescription("Fallback description");
+        item.setMetadata(null); // no metadata → use description
+
+        AiDtos.GenerateAssessmentItemsResponse aiResponse = AiDtos.GenerateAssessmentItemsResponse.builder()
+                .items(Collections.emptyList())
+                .build();
+
+        when(contentItemRepository.findById(itemId)).thenReturn(Optional.of(item));
+        when(aiServiceClient.generateAssessmentItems(any())).thenReturn(aiResponse);
+
+        var result = contentItemService.generateAssessments(itemId, 0);
+
+        assertTrue(result.isEmpty());
+        verify(aiServiceClient).generateAssessmentItems(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // generateAssessments — item not found
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testGenerateAssessments_ItemNotFound_Throws() {
+        UUID itemId = UUID.randomUUID();
+        when(contentItemRepository.findById(itemId)).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> contentItemService.generateAssessments(itemId, 1));
+    }
+
+    // -------------------------------------------------------------------------
+    // autoLinkSkills — matched skills are linked
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testAutoLinkSkills_MatchedSkills_SavesAssociations() {
+        UUID itemId = UUID.randomUUID();
+        UUID domainId = UUID.randomUUID();
+        UUID skillId = UUID.randomUUID();
+
+        Domain domain = new Domain();
+        domain.setId(domainId);
+        domain.setName("Biology");
+
+        ContentItem item = new ContentItem();
+        item.setId(itemId);
+        item.setDomain(domain);
+        item.setMetadata(Map.of("body", "body text"));
+
+        Skill skill = new Skill();
+        skill.setId(skillId);
+        skill.setCode("BIO-001");
+
+        AiDtos.AnalyzeSkillTagsResponse aiResponse = AiDtos.AnalyzeSkillTagsResponse.builder()
+                .suggestedSkillCodes(List.of("BIO-001"))
+                .build();
+
+        when(contentItemRepository.findById(itemId)).thenReturn(Optional.of(item));
+        when(aiServiceClient.analyzeSkillTags(any())).thenReturn(aiResponse);
+        when(skillRepository.findByDomainId(domainId)).thenReturn(List.of(skill));
+
+        List<Skill> result = contentItemService.autoLinkSkills(itemId);
+
+        assertEquals(1, result.size());
+        assertEquals("BIO-001", result.get(0).getCode());
+        verify(contentItemSkillRepository).save(any(ContentItemSkill.class));
+    }
+
+    // -------------------------------------------------------------------------
+    // autoLinkSkills — no skills matched → empty result, no saves
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testAutoLinkSkills_NoMatchedSkills_ReturnsEmptyAndNoSave() {
+        UUID itemId = UUID.randomUUID();
+        UUID domainId = UUID.randomUUID();
+
+        Domain domain = new Domain();
+        domain.setId(domainId);
+        domain.setName("History");
+
+        ContentItem item = new ContentItem();
+        item.setId(itemId);
+        item.setDomain(domain);
+        item.setDescription("Content text");
+        item.setMetadata(Map.of("other_key", "value")); // no "body" key → fallback to description
+
+        AiDtos.AnalyzeSkillTagsResponse aiResponse = AiDtos.AnalyzeSkillTagsResponse.builder()
+                .suggestedSkillCodes(List.of("HIST-999"))
+                .build();
+
+        when(contentItemRepository.findById(itemId)).thenReturn(Optional.of(item));
+        when(aiServiceClient.analyzeSkillTags(any())).thenReturn(aiResponse);
+        when(skillRepository.findByDomainId(domainId)).thenReturn(Collections.emptyList());
+
+        List<Skill> result = contentItemService.autoLinkSkills(itemId);
+
+        assertTrue(result.isEmpty());
+        verify(contentItemSkillRepository, never()).save(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // autoLinkSkills — item not found
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testAutoLinkSkills_ItemNotFound_Throws() {
+        UUID itemId = UUID.randomUUID();
+        when(contentItemRepository.findById(itemId)).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class, () -> contentItemService.autoLinkSkills(itemId));
+    }
 }

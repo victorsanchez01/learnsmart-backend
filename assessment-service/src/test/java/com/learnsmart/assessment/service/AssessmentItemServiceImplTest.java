@@ -42,13 +42,31 @@ class AssessmentItemServiceImplTest {
         AssessmentItem result = assessmentItemService.create(item);
         assertNotNull(result);
         assertEquals(item.getId(), result.getId());
-        assertEquals(item, option.getAssessmentItem()); // Verify checking bidirectional link
-        assertEquals(item, skill.getAssessmentItem()); // Verify checking bidirectional link
-        verify(assessmentItemRepository).save(item);
+        // Verify bidirectional relationship links are established
+        assertEquals(item, option.getAssessmentItem());
+        assertEquals(item, skill.getAssessmentItem());
+        verify(assessmentItemRepository, times(1)).save(item);
     }
 
     @Test
-    void testFindById() {
+    void testCreate_WithNullCollections() {
+        // Verifies null skills/options do not cause NullPointerException (defensive
+        // null
+        // check in impl)
+        AssessmentItem item = new AssessmentItem();
+        item.setId(UUID.randomUUID());
+        item.setSkills(null);
+        item.setOptions(null);
+
+        when(assessmentItemRepository.save(any(AssessmentItem.class))).thenReturn(item);
+
+        AssessmentItem result = assertDoesNotThrow(() -> assessmentItemService.create(item));
+        assertNotNull(result);
+        verify(assessmentItemRepository, times(1)).save(item);
+    }
+
+    @Test
+    void testFindById_Found() {
         UUID id = UUID.randomUUID();
         AssessmentItem item = new AssessmentItem();
         item.setId(id);
@@ -61,7 +79,29 @@ class AssessmentItemServiceImplTest {
     }
 
     @Test
-    void testFindAll() {
+    void testFindById_NotFound() {
+        UUID id = UUID.randomUUID();
+        when(assessmentItemRepository.findById(id)).thenReturn(Optional.empty());
+
+        Optional<AssessmentItem> result = assessmentItemService.findById(id);
+        assertFalse(result.isPresent());
+        verify(assessmentItemRepository).findById(id);
+    }
+
+    @Test
+    void testFindAll_ReturnsItems() {
+        AssessmentItem item = new AssessmentItem();
+        item.setId(UUID.randomUUID());
+        when(assessmentItemRepository.findAll()).thenReturn(List.of(item));
+
+        List<AssessmentItem> result = assessmentItemService.findAll();
+        assertEquals(1, result.size());
+        assertEquals(item.getId(), result.get(0).getId());
+        verify(assessmentItemRepository).findAll();
+    }
+
+    @Test
+    void testFindAll_Empty() {
         when(assessmentItemRepository.findAll()).thenReturn(Collections.emptyList());
 
         List<AssessmentItem> result = assessmentItemService.findAll();

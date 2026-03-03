@@ -170,4 +170,72 @@ class ContentItemControllerTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(contentService).updateSkillAssociations(eq(id), anyList(), anyList());
     }
+
+    // -------------------------------------------------------------------------
+    // POST /{id}/assessments/generate (US-10-08)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testGenerateAssessments_ReturnsOk() {
+        UUID id = UUID.randomUUID();
+        ContentDtos.GenerateAssessmentsInput input = new ContentDtos.GenerateAssessmentsInput();
+        input.setNItems(3);
+
+        ContentDtos.AssessmentItemDraft draft = new ContentDtos.AssessmentItemDraft();
+        draft.setQuestion("Q1");
+
+        when(contentService.generateAssessments(id, 3)).thenReturn(List.of(draft));
+
+        ResponseEntity<List<ContentDtos.AssessmentItemDraft>> response = controller.generateAssessments(id, input);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(1, response.getBody().size());
+        assertEquals("Q1", response.getBody().get(0).getQuestion());
+        verify(contentService).generateAssessments(id, 3);
+    }
+
+    // -------------------------------------------------------------------------
+    // POST /{id}/skills/auto-link (US-10-09)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testAutoLinkSkills_ReturnsLinkedSkills() {
+        UUID id = UUID.randomUUID();
+        com.learnsmart.content.model.Skill skill = new com.learnsmart.content.model.Skill();
+        skill.setId(UUID.randomUUID());
+        skill.setCode("BIO-001");
+
+        when(contentService.autoLinkSkills(id)).thenReturn(List.of(skill));
+
+        ResponseEntity<List<com.learnsmart.content.model.Skill>> response = controller.autoLinkSkills(id);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(1, response.getBody().size());
+        assertEquals("BIO-001", response.getBody().get(0).getCode());
+        verify(contentService).autoLinkSkills(id);
+    }
+
+    // -------------------------------------------------------------------------
+    // toDto — item with a non-null domain fills the domain DTO branch
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testGetContentItems_WithDomain_FillsDomainDto() {
+        UUID domainId = UUID.randomUUID();
+
+        com.learnsmart.content.model.Domain domain = new com.learnsmart.content.model.Domain();
+        domain.setCode("MATH");
+        domain.setName("Mathematics");
+
+        ContentItem item = new ContentItem();
+        item.setId(UUID.randomUUID());
+        item.setTitle("Item with domain");
+        item.setDomain(domain);
+
+        when(contentService.findAll(eq(domainId), any(), any(), eq(true), anyInt(), anyInt()))
+                .thenReturn(List.of(item));
+
+        List<ContentDtos.ContentItemResponse> result = controller.getContentItems(domainId, null, 0, 10);
+        assertEquals(1, result.size());
+        assertNotNull(result.get(0).getDomain());
+        assertEquals("MATH", result.get(0).getDomain().getCode());
+    }
 }

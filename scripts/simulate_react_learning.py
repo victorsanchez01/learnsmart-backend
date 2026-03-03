@@ -82,7 +82,7 @@ class LearnSmartClient:
         return self._handle_response(response, "DELETE", path)
 
     def _handle_response(self, response, method, path):
-        if response.status_code in [200, 201, 204]:
+        if response.status_code in [200, 201, 202, 204]:
             print(f"  ✓ {method} {path} -> {response.status_code}")
             if response.content:
                 try:
@@ -282,7 +282,8 @@ def run_simulation(simulation_id=None):
         print(f"  > Goal Created: {goal_id}")
         print(f"    - Title: {goal['title']}")
         print(f"    - Status: {goal.get('status', 'ACTIVE')}")
-        print(f"    - Progress: {goal.get('progressPercentage', 0)}%")
+        progress = goal.get('progressPercentage')
+        print(f"    - Progress: {progress if progress is not None else 0}%")
 
     # ==========================================
     # STEP 5: Diagnostic Test (Sprint 5.1)
@@ -437,7 +438,8 @@ def run_simulation(simulation_id=None):
         
         if completed_goal:
             print(f"    - Status: {completed_goal.get('status')}")
-            print(f"    - Progress: {completed_goal.get('progressPercentage')}%")
+            progress = completed_goal.get('progressPercentage')
+            print(f"    - Progress: {progress if progress is not None else 0}%")
             print(f"    - Completed At: {completed_goal.get('completedAt', 'N/A')}")
 
 

@@ -18,6 +18,8 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,6 +39,19 @@ class DomainControllerTest {
         List<Domain> result = controller.getDomains(code, "published", 0, 10);
         assertTrue(result.isEmpty());
         verify(domainService).findAll(eq(code), eq("published"), eq(0), eq(10));
+    }
+
+    // -------------------------------------------------------------------------
+    // getDomains — status = "all" → passes null to service (branch coverage)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testGetDomains_StatusAll_PassesNullFilter() {
+        when(domainService.findAll(isNull(), isNull(), anyInt(), anyInt())).thenReturn(Collections.emptyList());
+
+        List<Domain> result = controller.getDomains(null, "all", 0, 10);
+        assertTrue(result.isEmpty());
+        verify(domainService).findAll(null, null, 0, 10);
     }
 
     @Test

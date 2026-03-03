@@ -35,7 +35,7 @@ class TrackingServiceTest {
     private TrackingService trackingService;
 
     @Test
-    void testCreateEvent() {
+    void testCreateEvent_Success() {
         LearningEvent event = new LearningEvent();
         event.setEventType("content_view");
         event.setPayload("{\"test\":\"data\"}");
@@ -46,6 +46,21 @@ class TrackingServiceTest {
 
         verify(payloadValidator).validate("content_view", "{\"test\":\"data\"}");
         verify(repository).save(event);
+    }
+
+    @Test
+    void testCreateEvent_ValidatorThrows_ExceptionPropagates() {
+        // Payload validator must fail-fast: invalid events must NOT be persisted.
+        LearningEvent event = new LearningEvent();
+        event.setEventType("CONTENT_START");
+        event.setPayload("{}"); // Missing required fields
+
+        doThrow(new IllegalArgumentException("Missing required field 'startTime'"))
+                .when(payloadValidator).validate(anyString(), anyString());
+
+        assertThrows(IllegalArgumentException.class, () -> trackingService.createEvent(event),
+                "Validation errors must propagate and prevent event from being saved");
+        verify(repository, never()).save(any());
     }
 
     @Test

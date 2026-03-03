@@ -351,8 +351,19 @@ class GeneratePrerequisitesResponse(BaseModel):
 def generate_prerequisites(request: GeneratePrerequisitesRequest):
     """US-10-07: Determine prerequisite relationships between skills."""
     try:
-        val_skills = InputValidator.validate_obj(request.skills)
-        
+        # Explicitly validate the string fields inside the dictionaries to catch injections
+        val_skills = []
+        for s in request.skills:
+            # Validate each string field we expect or simply deep-validate a regular dict
+            skill_dict = dict(s)
+            val_skill = {}
+            for k, v in skill_dict.items():
+                if isinstance(v, str):
+                    val_skill[k] = InputValidator.validate_text(v, f"skill.{k}")
+                else:
+                    val_skill[k] = v
+            val_skills.append(val_skill)
+            
         result = llm_service.generate_prerequisites(skills=val_skills)
         
         return GeneratePrerequisitesResponse(prerequisites=result.get("prerequisites", []))

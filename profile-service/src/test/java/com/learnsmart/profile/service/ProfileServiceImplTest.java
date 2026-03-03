@@ -30,18 +30,20 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ProfileServiceImplTest {
 
+    /**
+     * Default hours/week returned when no preferences record exists (mirrors
+     * service impl).
+     */
+    private static final double DEFAULT_HOURS_PER_WEEK = 5.0;
+
     @Mock
     private UserProfileRepository profileRepository;
-
     @Mock
     private UserGoalRepository goalRepository;
-
     @Mock
     private UserStudyPreferencesRepository preferencesRepository;
-
     @Mock
     private AuditService auditService;
-
     @Mock
     private com.learnsmart.profile.client.ContentServiceClient contentClient;
 
@@ -53,11 +55,12 @@ class ProfileServiceImplTest {
         SecurityContextHolder.clearContext();
     }
 
-    // --- User Profile Tests ---
+    // -------------------------------------------------------------------------
+    // registerUser
+    // -------------------------------------------------------------------------
 
     @Test
     void testRegisterUser_Success_WithJwt() {
-        // Setup Security Context
         SecurityContext securityContext = mock(SecurityContext.class);
         Authentication authentication = mock(Authentication.class);
         Jwt jwt = mock(Jwt.class);
@@ -72,10 +75,7 @@ class ProfileServiceImplTest {
                 .build();
 
         when(profileRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
-        when(profileRepository.save(any(UserProfile.class))).thenAnswer(invocation -> {
-            UserProfile p = invocation.getArgument(0);
-            return p;
-        });
+        when(profileRepository.save(any(UserProfile.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         UserProfileResponse response = profileService.registerUser(request);
 
@@ -86,8 +86,9 @@ class ProfileServiceImplTest {
     }
 
     @Test
-    void testRegisterUser_Success_NoJwt_Fallback() {
-        // Ensure no security context
+    void testRegisterUser_NoJwt_FallsBackToGeneratedUuid() {
+        // Behavior: without a JWT the service generates a random UUID for authUserId.
+        // This is documented as a fallback for testing/legacy scenarios.
         SecurityContextHolder.clearContext();
 
         UserRegistrationRequest request = UserRegistrationRequest.builder()
@@ -101,12 +102,12 @@ class ProfileServiceImplTest {
         UserProfileResponse response = profileService.registerUser(request);
 
         assertNotNull(response);
-        assertNotNull(response.getAuthUserId()); // UUID generated
+        assertNotNull(response.getAuthUserId(), "A UUID must be assigned even without JWT");
         verify(profileRepository).save(any(UserProfile.class));
     }
 
     @Test
-    void testRegisterUser_EmailExists() {
+    void testRegisterUser_EmailAlreadyExists_Throws() {
         UserRegistrationRequest request = UserRegistrationRequest.builder()
                 .email("existing@example.com")
                 .build();
@@ -117,14 +118,14 @@ class ProfileServiceImplTest {
         verify(profileRepository, never()).save(any());
     }
 
-    @Test
-    void testGetProfile_Success() {
-        UUID userId = UUID.randomUUID();
-        UserProfile profile = UserProfile.builder()
-                .userId(userId)
-                .email("test@example.com")
-                .build();
+    // -------------------------------------------------------------------------
+    // getProfile
+    // -------------------------------------------------------------------------
 
+    @Test
+    void testGetProfile_Found() {
+        UUID userId = UUID.randomUUID();
+        UserProfile profile = UserProfile.builder().userId(userId).email("test@example.com").build();
         when(profileRepository.findById(userId)).thenReturn(Optional.of(profile));
 
         UserProfileResponse response = profileService.getProfile(userId);
@@ -139,8 +140,12 @@ class ProfileServiceImplTest {
         assertThrows(IllegalArgumentException.class, () -> profileService.getProfile(userId));
     }
 
+    // -------------------------------------------------------------------------
+    // getProfileByAuthId
+    // -------------------------------------------------------------------------
+
     @Test
-    void testGetProfileByAuthId_Success() {
+    void testGetProfileByAuthId_Found() {
         String authId = "auth-123";
         UserProfile profile = UserProfile.builder().authUserId(authId).build();
         when(profileRepository.findByAuthUserId(authId)).thenReturn(Optional.of(profile));
@@ -156,8 +161,12 @@ class ProfileServiceImplTest {
         assertThrows(IllegalArgumentException.class, () -> profileService.getProfileByAuthId(authId));
     }
 
+    // -------------------------------------------------------------------------
+    // updateProfile
+    // -------------------------------------------------------------------------
+
     @Test
-    void testUpdateProfile_Success_AllFields() {
+    void testUpdateProfile_AllFields() {
         UUID userId = UUID.randomUUID();
         UserProfile profile = UserProfile.builder().userId(userId).build();
 
@@ -180,6 +189,29 @@ class ProfileServiceImplTest {
     }
 
     @Test
+    void testUpdateProfile_PartialFields_DoesNotClearUnsetFields() {
+        UUID userId = UUID.randomUUID();
+        UserProfile profile = UserProfile.builder()
+                .userId(userId)
+                .displayName("Original")
+                .locale("es-ES")
+                .build();
+
+        // Only updating displayName; locale must remain unchanged
+        UserProfileUpdateRequest request = UserProfileUpdateRequest.builder()
+                .displayName("Updated")
+                .build();
+
+        when(profileRepository.findById(userId)).thenReturn(Optional.of(profile));
+        when(profileRepository.save(any(UserProfile.class))).thenAnswer(i -> i.getArgument(0));
+
+        UserProfileResponse response = profileService.updateProfile(userId, request);
+
+        assertEquals("Updated", response.getDisplayName());
+        assertEquals("es-ES", response.getLocale(), "Unset fields must not be overwritten");
+    }
+
+    @Test
     void testUpdateProfile_NotFound() {
         UUID userId = UUID.randomUUID();
         when(profileRepository.findById(userId)).thenReturn(Optional.empty());
@@ -187,7 +219,9 @@ class ProfileServiceImplTest {
                 () -> profileService.updateProfile(userId, UserProfileUpdateRequest.builder().build()));
     }
 
-    // --- User Goal Tests ---
+    // -------------------------------------------------------------------------
+    // Goals
+    // -------------------------------------------------------------------------
 
     @Test
     void testCreateGoal() {
@@ -237,7 +271,6 @@ class ProfileServiceImplTest {
                 .build();
 
         when(goalRepository.findById(goalId)).thenReturn(Optional.of(goal));
-        // Mock Content Client
         when(contentClient.getDomain(any()))
                 .thenReturn(new com.learnsmart.profile.client.ContentServiceClient.DomainDto());
         when(goalRepository.save(any(UserGoal.class))).thenAnswer(i -> i.getArgument(0));
@@ -268,7 +301,6 @@ class ProfileServiceImplTest {
 
         when(goalRepository.findById(goalId)).thenReturn(Optional.of(goal));
 
-        // Should return empty from filter and thus throw
         assertThrows(IllegalArgumentException.class,
                 () -> profileService.updateGoal(userId, goalId, UserGoalUpdateRequest.builder().build()));
     }
@@ -294,7 +326,26 @@ class ProfileServiceImplTest {
         assertThrows(IllegalArgumentException.class, () -> profileService.deleteGoal(userId, goalId));
     }
 
-    // --- Preferences Tests ---
+    @Test
+    void testDeleteGoal_WrongUser_Throws() {
+        // Cross-user authorization boundary: a user must not be able to delete another
+        // user's goal.
+        UUID userId = UUID.randomUUID();
+        UUID otherUser = UUID.randomUUID();
+        UUID goalId = UUID.randomUUID();
+        UserGoal goal = UserGoal.builder().id(goalId).userId(otherUser).build();
+
+        when(goalRepository.findById(goalId)).thenReturn(Optional.of(goal));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> profileService.deleteGoal(userId, goalId),
+                "Deleting another user's goal must throw");
+        verify(goalRepository, never()).delete(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // Preferences
+    // -------------------------------------------------------------------------
 
     @Test
     void testGetPreferences_Found() {
@@ -310,12 +361,14 @@ class ProfileServiceImplTest {
     }
 
     @Test
-    void testGetPreferences_Default() {
+    void testGetPreferences_NotFound_ReturnsDefaults() {
         UUID userId = UUID.randomUUID();
         when(preferencesRepository.findById(userId)).thenReturn(Optional.empty());
 
         UserStudyPreferencesResponse response = profileService.getPreferences(userId);
-        assertEquals(5.0, response.getHoursPerWeek()); // Default from code
+        assertEquals(DEFAULT_HOURS_PER_WEEK, response.getHoursPerWeek(),
+                "Default hoursPerWeek must be " + DEFAULT_HOURS_PER_WEEK);
+        assertTrue(response.getNotificationsEnabled(), "Notifications must default to enabled");
     }
 
     @Test
@@ -356,5 +409,267 @@ class ProfileServiceImplTest {
         assertEquals(45, response.getPreferredSessionMinutes());
         assertFalse(response.getNotificationsEnabled());
         assertEquals(1, response.getPreferredDays().size());
+    }
+
+    // -------------------------------------------------------------------------
+    // createGoal — validation branches (domainId / skillId)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testCreateGoal_WithDomainId_Validates() {
+        UUID userId = UUID.randomUUID();
+        UUID domainId = UUID.randomUUID();
+        UserGoalCreateRequest request = UserGoalCreateRequest.builder()
+                .title("Goal with domain")
+                .domainId(domainId)
+                .build();
+
+        when(contentClient.getDomain(domainId))
+                .thenReturn(new com.learnsmart.profile.client.ContentServiceClient.DomainDto());
+        when(goalRepository.save(any(UserGoal.class))).thenAnswer(i -> i.getArgument(0));
+
+        UserGoalResponse response = profileService.createGoal(userId, request);
+        assertNotNull(response);
+        verify(contentClient).getDomain(domainId);
+    }
+
+    @Test
+    void testCreateGoal_DomainNotFound_Throws() {
+        UUID userId = UUID.randomUUID();
+        UUID domainId = UUID.randomUUID();
+        UserGoalCreateRequest request = UserGoalCreateRequest.builder()
+                .title("Goal")
+                .domainId(domainId)
+                .build();
+
+        when(contentClient.getDomain(domainId))
+                .thenThrow(new RuntimeException("Domain service down"));
+
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> profileService.createGoal(userId, request));
+        verify(goalRepository, never()).save(any());
+    }
+
+    @Test
+    void testCreateGoal_SkillBelongsToWrongDomain_Throws() {
+        UUID userId = UUID.randomUUID();
+        UUID domainId = UUID.randomUUID();
+        UUID skillId = UUID.randomUUID();
+        UUID otherDomainId = UUID.randomUUID(); // Different from domainId
+
+        UserGoalCreateRequest request = UserGoalCreateRequest.builder()
+                .title("Goal")
+                .domainId(domainId)
+                .skillId(skillId)
+                .build();
+
+        com.learnsmart.profile.client.ContentServiceClient.DomainDto domain = new com.learnsmart.profile.client.ContentServiceClient.DomainDto();
+        when(contentClient.getDomain(domainId)).thenReturn(domain);
+
+        com.learnsmart.profile.client.ContentServiceClient.SkillDto skill = new com.learnsmart.profile.client.ContentServiceClient.SkillDto();
+        com.learnsmart.profile.client.ContentServiceClient.DomainDto otherDomain = new com.learnsmart.profile.client.ContentServiceClient.DomainDto();
+        otherDomain.setId(otherDomainId);
+        skill.setDomain(otherDomain);
+        skill.setCode("SKILL_CODE");
+        when(contentClient.getSkill(skillId)).thenReturn(skill);
+
+        // Skill domain doesn't match goal domain → service throws 400
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> profileService.createGoal(userId, request));
+        verify(goalRepository, never()).save(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // markGoalAsCompleted
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testMarkGoalAsCompleted_Success() {
+        UUID userId = UUID.randomUUID();
+        UUID goalId = UUID.randomUUID();
+        UserGoal goal = UserGoal.builder()
+                .id(goalId)
+                .userId(userId)
+                .title("Complete me")
+                .completionPercentage(80)
+                .status("in_progress")
+                .build();
+
+        when(goalRepository.findById(goalId)).thenReturn(Optional.of(goal));
+        when(goalRepository.save(any(UserGoal.class))).thenAnswer(i -> i.getArgument(0));
+
+        UserGoalResponse response = profileService.markGoalAsCompleted(userId, goalId);
+
+        assertEquals("completed", response.getStatus());
+        assertEquals(100, response.getCompletionPercentage());
+        assertNotNull(response.getCompletedAt());
+    }
+
+    @Test
+    void testMarkGoalAsCompleted_WrongUser_Throws() {
+        UUID userId = UUID.randomUUID();
+        UUID otherUser = UUID.randomUUID();
+        UUID goalId = UUID.randomUUID();
+        UserGoal goal = UserGoal.builder().id(goalId).userId(otherUser).build();
+
+        when(goalRepository.findById(goalId)).thenReturn(Optional.of(goal));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> profileService.markGoalAsCompleted(userId, goalId));
+        verify(goalRepository, never()).save(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // updateGoalProgress
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testUpdateGoalProgress_Partial_SetsInProgress() {
+        UUID userId = UUID.randomUUID();
+        UUID goalId = UUID.randomUUID();
+        UserGoal goal = UserGoal.builder()
+                .id(goalId)
+                .userId(userId)
+                .completionPercentage(0)
+                .status("active")
+                .build();
+
+        when(goalRepository.findById(goalId)).thenReturn(Optional.of(goal));
+        when(goalRepository.save(any(UserGoal.class))).thenAnswer(i -> i.getArgument(0));
+
+        UserGoalResponse response = profileService.updateGoalProgress(userId, goalId, 50);
+
+        assertEquals(50, response.getCompletionPercentage());
+        assertEquals("in_progress", response.getStatus());
+    }
+
+    @Test
+    void testUpdateGoalProgress_100_AutoCompletes() {
+        UUID userId = UUID.randomUUID();
+        UUID goalId = UUID.randomUUID();
+        UserGoal goal = UserGoal.builder()
+                .id(goalId)
+                .userId(userId)
+                .completionPercentage(80)
+                .status("in_progress")
+                .build();
+
+        when(goalRepository.findById(goalId)).thenReturn(Optional.of(goal));
+        when(goalRepository.save(any(UserGoal.class))).thenAnswer(i -> i.getArgument(0));
+
+        UserGoalResponse response = profileService.updateGoalProgress(userId, goalId, 100);
+
+        assertEquals(100, response.getCompletionPercentage());
+        assertEquals("completed", response.getStatus());
+        assertNotNull(response.getCompletedAt());
+    }
+
+    @Test
+    void testUpdateGoalProgress_Invalid_Throws() {
+        UUID userId = UUID.randomUUID();
+        UUID goalId = UUID.randomUUID();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> profileService.updateGoalProgress(userId, goalId, 150),
+                "Percentage > 100 must throw");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> profileService.updateGoalProgress(userId, goalId, -1),
+                "Percentage < 0 must throw");
+
+        verify(goalRepository, never()).findById(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // getGoalsByStatus
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testGetGoalsByStatus() {
+        UUID userId = UUID.randomUUID();
+        UserGoal goal = UserGoal.builder().userId(userId).status("completed").title("Done").build();
+        when(goalRepository.findByUserIdAndStatus(userId, "completed")).thenReturn(List.of(goal));
+
+        List<UserGoalResponse> responses = profileService.getGoalsByStatus(userId, "completed");
+
+        assertEquals(1, responses.size());
+        assertEquals("Done", responses.get(0).getTitle());
+        verify(goalRepository).findByUserIdAndStatus(userId, "completed");
+    }
+
+    // -------------------------------------------------------------------------
+    // getMyAuditLogs
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testGetMyAuditLogs_ReturnsMappedLogs() {
+        UUID userId = UUID.randomUUID();
+        com.learnsmart.profile.model.UserAuditLog log = new com.learnsmart.profile.model.UserAuditLog();
+        log.setId(UUID.randomUUID());
+        log.setAction("CREATE");
+        log.setEntityType("PROFILE");
+
+        when(auditService.getAuditTrail(userId, 0, 10)).thenReturn(List.of(log));
+
+        List<UserAuditLogResponse> responses = profileService.getMyAuditLogs(userId, 0, 10);
+
+        assertEquals(1, responses.size());
+        assertEquals("CREATE", responses.get(0).getAction());
+        assertEquals("PROFILE", responses.get(0).getEntityType());
+        verify(auditService).getAuditTrail(userId, 0, 10);
+    }
+
+    // -------------------------------------------------------------------------
+    // updateGoal — auto-complete on status COMPLETED
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testUpdateGoal_StatusCompleted_SetsCompletedAt() {
+        UUID userId = UUID.randomUUID();
+        UUID goalId = UUID.randomUUID();
+        UserGoal goal = UserGoal.builder()
+                .id(goalId)
+                .userId(userId)
+                .title("Goal")
+                .completedAt(null)
+                .build();
+
+        UserGoalUpdateRequest request = UserGoalUpdateRequest.builder()
+                .status("COMPLETED")
+                .build();
+
+        when(goalRepository.findById(goalId)).thenReturn(Optional.of(goal));
+        when(goalRepository.save(any(UserGoal.class))).thenAnswer(i -> i.getArgument(0));
+
+        UserGoalResponse response = profileService.updateGoal(userId, goalId, request);
+
+        assertNotNull(response.getCompletedAt(), "completedAt must be set when status is COMPLETED");
+        assertEquals("COMPLETED", response.getStatus());
+    }
+
+    @Test
+    void testUpdateGoal_Progress100_AutoCompletes() {
+        UUID userId = UUID.randomUUID();
+        UUID goalId = UUID.randomUUID();
+        UserGoal goal = UserGoal.builder()
+                .id(goalId)
+                .userId(userId)
+                .title("Goal")
+                .completionPercentage(80)
+                .completedAt(null)
+                .build();
+
+        UserGoalUpdateRequest request = UserGoalUpdateRequest.builder()
+                .progressPercentage(100)
+                .build();
+
+        when(goalRepository.findById(goalId)).thenReturn(Optional.of(goal));
+        when(goalRepository.save(any(UserGoal.class))).thenAnswer(i -> i.getArgument(0));
+
+        UserGoalResponse response = profileService.updateGoal(userId, goalId, request);
+
+        assertEquals(100, response.getCompletionPercentage());
+        assertEquals("COMPLETED", response.getStatus());
+        assertNotNull(response.getCompletedAt());
     }
 }

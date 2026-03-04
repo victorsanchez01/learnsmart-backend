@@ -11,6 +11,7 @@ import java.util.UUID;
 import java.time.OffsetDateTime;
 import java.math.BigDecimal;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "plan_modules", uniqueConstraints = {
@@ -30,7 +31,7 @@ public class PlanModule {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "plan_id", nullable = false)
-    @com.fasterxml.jackson.annotation.JsonIgnore
+    @JsonIgnore
     private LearningPlan plan;
 
     @Column(nullable = false)

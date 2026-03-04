@@ -133,8 +133,10 @@ class ContentItemServiceImplTest {
     @Test
     void testDelete() {
         UUID id = UUID.randomUUID();
+        doNothing().when(contentItemSkillRepository).deleteByIdContentItemId(id);
         doNothing().when(contentItemRepository).deleteById(id);
         contentItemService.delete(id);
+        verify(contentItemSkillRepository).deleteByIdContentItemId(id);
         verify(contentItemRepository).deleteById(id);
     }
 
@@ -200,6 +202,7 @@ class ContentItemServiceImplTest {
 
     @Test
     void testGenerateAndSave_NullDraftFields_UsesDefaults() {
+        @SuppressWarnings("null")
         UUID domainId = UUID.randomUUID();
         Domain domain = new Domain();
         domain.setName("Math");
@@ -342,7 +345,7 @@ class ContentItemServiceImplTest {
 
         assertEquals(1, result.size());
         assertEquals("BIO-001", result.get(0).getCode());
-        verify(contentItemSkillRepository).save(any(ContentItemSkill.class));
+        verify(contentItemSkillRepository).saveAndFlush(any(ContentItemSkill.class));
     }
 
     // -------------------------------------------------------------------------

@@ -195,14 +195,14 @@ class ProfileControllerTest {
 
     @Test
     void testGetMyProgress() {
-        String xUserId = "user-123";
+        UUID userId = UUID.randomUUID();
         UserProgressResponse mockProgress = UserProgressResponse.builder()
-                .profile(ProgressDtos.ProfileInfo.builder().userId(UUID.randomUUID().toString()).build())
+                .profile(ProgressDtos.ProfileInfo.builder().userId(userId.toString()).build())
                 .build();
 
-        when(progressService.getConsolidatedProgress(xUserId)).thenReturn(mockProgress);
+        when(progressService.getConsolidatedProgressByInternalId(userId)).thenReturn(mockProgress);
 
-        ResponseEntity<UserProgressResponse> response = profileController.getMyProgress(xUserId);
+        ResponseEntity<UserProgressResponse> response = profileController.getMyProgress(userId.toString());
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(mockProgress, response.getBody());
     }
@@ -297,19 +297,23 @@ class ProfileControllerTest {
     @Test
     void testGetMyProgress_ViaJwt() {
         String authId = "auth-jwt-123";
+        UUID userId = UUID.randomUUID();
         mockSecurityContext(authId);
+
+        UserProfileResponse profileByAuth = UserProfileResponse.builder().userId(userId).build();
+        when(profileService.getProfileByAuthId(authId)).thenReturn(profileByAuth);
 
         com.learnsmart.profile.dto.ProgressDtos.UserProgressResponse mockProgress = com.learnsmart.profile.dto.ProgressDtos.UserProgressResponse
                 .builder()
                 .profile(com.learnsmart.profile.dto.ProgressDtos.ProfileInfo.builder()
-                        .userId(UUID.randomUUID().toString()).build())
+                        .userId(userId.toString()).build())
                 .build();
-        when(progressService.getConsolidatedProgress(authId)).thenReturn(mockProgress);
+        when(progressService.getConsolidatedProgressByInternalId(userId)).thenReturn(mockProgress);
 
         ResponseEntity<com.learnsmart.profile.dto.ProgressDtos.UserProgressResponse> response = profileController
                 .getMyProgress(null);
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(progressService).getConsolidatedProgress(authId);
+        verify(progressService).getConsolidatedProgressByInternalId(userId);
     }
 
     @Test

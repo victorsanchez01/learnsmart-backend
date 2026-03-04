@@ -315,8 +315,6 @@ class LearningPlanServiceImplTest {
         existing.setModules(new ArrayList<>());
 
         when(planRepository.findById(id)).thenReturn(Optional.of(existing));
-        when(objectMapper.convertValue(any(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
-                .thenReturn(new java.util.HashMap<>());
 
         ExternalDtos.ReplanResponse replanResponse = new ExternalDtos.ReplanResponse(null, "Modules reordered");
         when(aiClient.replan(any(ExternalDtos.ReplanRequest.class))).thenReturn(replanResponse);
@@ -345,8 +343,6 @@ class LearningPlanServiceImplTest {
         existing.setModules(new ArrayList<>());
 
         when(planRepository.findById(id)).thenReturn(Optional.of(existing));
-        when(objectMapper.convertValue(any(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
-                .thenReturn(new java.util.HashMap<>());
         when(aiClient.replan(any())).thenThrow(new RuntimeException("AI unreachable"));
 
         assertThrows(RuntimeException.class, () -> planService.replan(id, "reason", null));
@@ -436,9 +432,6 @@ class LearningPlanServiceImplTest {
         existing.setModules(new ArrayList<>());
 
         when(planRepository.findById(id)).thenReturn(Optional.of(existing));
-        when(objectMapper.convertValue(any(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
-                .thenReturn(new java.util.HashMap<>());
-        when(objectMapper.writeValueAsString(any())).thenReturn("{\"raw\":true}");
 
         // AI returns a plan with 2 modules, each with 1 activity
         ExternalDtos.ActivityDraft actDraft = new ExternalDtos.ActivityDraft("lesson", "content-ref-1");
@@ -472,8 +465,6 @@ class LearningPlanServiceImplTest {
         existing.setModules(new ArrayList<>());
 
         when(planRepository.findById(id)).thenReturn(Optional.of(existing));
-        when(objectMapper.convertValue(any(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
-                .thenReturn(new java.util.HashMap<>());
 
         // AI returns no plan → no module replacement, just history
         ExternalDtos.ReplanResponse aiResponse = new ExternalDtos.ReplanResponse(null, "No changes needed");
@@ -506,8 +497,6 @@ class LearningPlanServiceImplTest {
         existing.setModules(new ArrayList<>());
 
         when(planRepository.findById(id)).thenReturn(Optional.of(existing));
-        when(objectMapper.convertValue(any(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
-                .thenReturn(new java.util.HashMap<>());
         when(aiClient.replan(any())).thenReturn(null);
         when(replanRepository.save(any(PlanReplanHistory.class))).thenAnswer(i -> i.getArgument(0));
         when(planRepository.save(any(LearningPlan.class))).thenAnswer(i -> i.getArgument(0));

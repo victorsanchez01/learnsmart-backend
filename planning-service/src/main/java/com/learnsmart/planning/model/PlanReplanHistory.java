@@ -10,6 +10,8 @@ import lombok.AllArgsConstructor;
 import java.util.UUID;
 import java.time.OffsetDateTime;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Entity
 @Table(name = "plan_replans_history")
 @Getter
@@ -26,6 +28,7 @@ public class PlanReplanHistory {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "plan_id", nullable = false)
+    @JsonIgnore
     private LearningPlan plan;
 
     @Column(columnDefinition = "TEXT")

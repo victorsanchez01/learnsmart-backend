@@ -231,10 +231,28 @@ public class LearningPlanServiceImpl implements LearningPlanService {
 
         try {
             // 1. Prepare Request
-            // Convert existing plan to Map (DTO logic simplified for MVP)
-            Map<String, Object> currentPlanMap = objectMapper.convertValue(existing,
-                    new TypeReference<Map<String, Object>>() {
-                    });
+            // Manually build map to avoid circular references in replans/modules
+            Map<String, Object> currentPlanMap = new java.util.HashMap<>();
+            currentPlanMap.put("id", existing.getId());
+            currentPlanMap.put("userId", existing.getUserId());
+            currentPlanMap.put("goalId", existing.getGoalId());
+            currentPlanMap.put("status", existing.getStatus());
+            currentPlanMap.put("startDate", existing.getStartDate());
+            currentPlanMap.put("endDate", existing.getEndDate());
+            currentPlanMap.put("hoursPerWeek", existing.getHoursPerWeek());
+
+            // Add modules without the circular plan reference
+            if (existing.getModules() != null) {
+                List<Map<String, Object>> modulesMap = existing.getModules().stream().map(m -> {
+                    Map<String, Object> mData = new java.util.HashMap<>();
+                    mData.put("id", m.getId());
+                    mData.put("title", m.getTitle());
+                    mData.put("position", m.getPosition());
+                    mData.put("status", m.getStatus());
+                    return mData;
+                }).collect(Collectors.toList());
+                currentPlanMap.put("modules", modulesMap);
+            }
 
             // Note: For full implementation, we should fetch recent events from Tracking
             // Service
@@ -252,12 +270,17 @@ public class LearningPlanServiceImpl implements LearningPlanService {
             ExternalDtos.ReplanResponse response = aiClient.replan(request);
 
             // 3. Apply Changes
-            if (response != null && response.getPlan() != null) {
-                // Completely replace modules with the new optimized path
+            if (response != null && response.getPlan() != null && response.getPlan().getModules() != null) {
+                // Clear existing modules and tasks to avoid uniqueness violations
+                existing.getModules().clear();
+                planRepository.saveAndFlush(existing);
+
                 List<PlanModule> newModules = new ArrayList<>();
                 int modIdx = 1;
 
                 for (ExternalDtos.ModuleDraft modDraft : response.getPlan().getModules()) {
+                    if (modDraft == null)
+                        continue;
                     PlanModule module = new PlanModule();
                     module.setPlan(existing);
                     module.setPosition(modIdx++);

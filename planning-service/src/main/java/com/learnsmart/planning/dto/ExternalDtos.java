@@ -23,6 +23,14 @@ public class ExternalDtos {
     }
 
     @Data
+    public static class DomainDto {
+        private UUID id;
+        private String name;
+        private String code;
+        private String description;
+    }
+
+    @Data
     public static class ContentItemDto {
         private String id; // UUID as String for AI
         private String title;
@@ -81,7 +89,8 @@ public class ExternalDtos {
     @AllArgsConstructor
     public static class GenerateDiagnosticTestRequest {
         @Builder.Default
-        private String domainId = "00000000-0000-0000-0000-000000000000"; // Default UUID placeholder
+        private String domainId = "00000000-0000-0000-0000-000000000000";
+        private String domainName; // Human-readable domain name forwarded to the AI
         @Builder.Default
         private String level = "BEGINNER";
         @Builder.Default
@@ -101,6 +110,7 @@ public class ExternalDtos {
     @AllArgsConstructor
     public static class ReplanRequest {
         private String userId;
+        private String reason; // e.g. "Failed_Assessment" — forwarded to the AI prompt
         private Map<String, Object> currentPlan;
         private List<Map<String, Object>> recentEvents;
         private List<Map<String, Object>> updatedSkillState;
@@ -110,7 +120,7 @@ public class ExternalDtos {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ReplanResponse {
-        private PlanDraft plan;
+        private Map<String, Object> plan;
         private String changeSummary;
     }
 }

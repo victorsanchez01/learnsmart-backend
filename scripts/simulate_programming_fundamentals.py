@@ -188,7 +188,7 @@ def run_demo():
     goal = student.post("/profiles/me/goals", {
         "title": "Master Python & Algorithms",
         "domainId": domain_id,
-        "skillId": var_req['id'] if 'var_req' in locals() and var_req else None,
+        "skillId": loop_req['id'] if 'loop_req' in locals() and loop_req else None,
         "targetLevel": "INTERMEDIATE"
     })
     goal_id = goal.get('id', str(uuid.uuid4())) if isinstance(goal, dict) else str(uuid.uuid4())

@@ -48,6 +48,8 @@ class AssessmentSessionServiceImplTest {
     @Mock
     private com.learnsmart.assessment.client.AiClient aiClient;
     @Mock
+    private com.learnsmart.assessment.client.ContentClient contentClient;
+    @Mock
     private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @InjectMocks
@@ -134,37 +136,40 @@ class AssessmentSessionServiceImplTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void testGetNextItem_AiFails_FallsBackToRandomItem() {
+    void testGetNextItem_AiFails_ThrowsException() {
         UUID sessionId = UUID.randomUUID();
+        UUID domainId = UUID.randomUUID();
         AssessmentSession session = new AssessmentSession();
         session.setId(sessionId);
         session.setUserId(UUID.randomUUID());
+        session.setDomainId(domainId);
         session.setPresentedItemIds(new java.util.ArrayList<>());
 
+        com.learnsmart.assessment.dto.MasteryDtos.DomainInfo domainInfo = new com.learnsmart.assessment.dto.MasteryDtos.DomainInfo(
+                domainId, "Programming Fundamentals");
+
         when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(masteryRepository.findByIdUserId(any())).thenReturn(Collections.emptyList());
+        when(contentClient.getDomain(domainId)).thenReturn(domainInfo);
         when(aiClient.getNextItem(any())).thenThrow(new RuntimeException("AI unavailable"));
 
-        AssessmentItem fallbackItem = new AssessmentItem();
-        when(itemRepository.findRandomActiveItem()).thenReturn(Optional.of(fallbackItem));
-
-        AssessmentItem result = sessionService.getNextItem(sessionId);
-        assertNotNull(result);
-        verify(itemRepository).findRandomActiveItem();
+        // No fallback: AI failure must propagate
+        assertThrows(RuntimeException.class, () -> sessionService.getNextItem(sessionId));
     }
 
     @Test
-    void testGetNextItem_NoItemsAvailable_Throws() {
+    void testGetNextItem_NoDomainId_Throws() {
         UUID sessionId = UUID.randomUUID();
         AssessmentSession session = new AssessmentSession();
         session.setId(sessionId);
         session.setUserId(UUID.randomUUID());
+        // domainId intentionally NOT set
         session.setPresentedItemIds(new java.util.ArrayList<>());
 
         when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
-        when(aiClient.getNextItem(any())).thenThrow(new RuntimeException("AI unavailable"));
-        when(itemRepository.findRandomActiveItem()).thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class, () -> sessionService.getNextItem(sessionId));
+        assertThrows(IllegalStateException.class, () -> sessionService.getNextItem(sessionId),
+                "Session without domainId must throw IllegalStateException");
     }
 
     // -------------------------------------------------------------------------
@@ -461,10 +466,12 @@ class AssessmentSessionServiceImplTest {
     void testGetNextItem_AiReturnsKnownItemId_ReturnsItem() {
         UUID sessionId = UUID.randomUUID();
         UUID knownItemId = UUID.randomUUID();
+        UUID domainId = UUID.randomUUID();
 
         AssessmentSession session = new AssessmentSession();
         session.setId(sessionId);
         session.setUserId(UUID.randomUUID());
+        session.setDomainId(domainId); // required since fail-fast guard
         session.setPresentedItemIds(new java.util.ArrayList<>());
 
         AssessmentItem expectedItem = new AssessmentItem();
@@ -477,6 +484,9 @@ class AssessmentSessionServiceImplTest {
                 itemMap, null);
 
         when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(masteryRepository.findByIdUserId(any())).thenReturn(Collections.emptyList());
+        when(contentClient.getDomain(domainId)).thenReturn(
+                new com.learnsmart.assessment.dto.MasteryDtos.DomainInfo(domainId, "Programming Fundamentals"));
         when(aiClient.getNextItem(any())).thenReturn(aiResponse);
         when(itemRepository.findById(knownItemId)).thenReturn(Optional.of(expectedItem));
         when(sessionRepository.save(any(AssessmentSession.class))).thenAnswer(i -> i.getArgument(0));

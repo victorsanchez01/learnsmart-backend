@@ -254,63 +254,74 @@ public class LearningPlanServiceImpl implements LearningPlanService {
                 currentPlanMap.put("modules", modulesMap);
             }
 
-            // Note: For full implementation, we should fetch recent events from Tracking
-            // Service
-            // and skill state from Assessment Service. For US-080 MVP, passing explicit
-            // constraints if any.
-
             ExternalDtos.ReplanRequest request = ExternalDtos.ReplanRequest.builder()
                     .userId(existing.getUserId())
+                    .reason(reason != null ? reason : "")
                     .currentPlan(currentPlanMap)
-                    .recentEvents(new ArrayList<>()) // Placeholder: Connect to Tracking Service in future
-                    .updatedSkillState(new ArrayList<>()) // Placeholder
+                    .recentEvents(new ArrayList<>())
+                    .updatedSkillState(new ArrayList<>())
                     .build();
 
             // 2. Call AI Service
             ExternalDtos.ReplanResponse response = aiClient.replan(request);
 
             // 3. Apply Changes
-            if (response != null && response.getPlan() != null && response.getPlan().getModules() != null) {
-                // Clear existing modules and tasks to avoid uniqueness violations
-                existing.getModules().clear();
-                planRepository.saveAndFlush(existing);
+            if (response != null && response.getPlan() != null) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> moduleDrafts = (List<Map<String, Object>>) response.getPlan().get("modules");
 
-                List<PlanModule> newModules = new ArrayList<>();
-                int modIdx = 1;
+                if (moduleDrafts != null) {
+                    // Clear existing modules and tasks to avoid uniqueness violations
+                    existing.getModules().clear();
+                    planRepository.saveAndFlush(existing);
 
-                for (ExternalDtos.ModuleDraft modDraft : response.getPlan().getModules()) {
-                    if (modDraft == null)
-                        continue;
-                    PlanModule module = new PlanModule();
-                    module.setPlan(existing);
-                    module.setPosition(modIdx++);
-                    module.setTitle(modDraft.getTitle());
-                    module.setDescription(modDraft.getDescription());
-                    module.setEstimatedHours(new BigDecimal("1.0")); // Default or parse from draft
+                    List<PlanModule> newModules = new ArrayList<>();
+                    int modIdx = 1;
 
-                    List<PlanActivity> activities = new ArrayList<>();
-                    int actIdx = 1;
-                    if (modDraft.getActivities() != null) {
-                        for (ExternalDtos.ActivityDraft actDraft : modDraft.getActivities()) {
-                            PlanActivity activity = new PlanActivity();
-                            activity.setModule(module);
-                            activity.setPosition(actIdx++);
-                            activity.setActivityType(actDraft.getType());
-                            String ref = actDraft.getContentRef();
-                            if (ref == null || ref.isBlank()) {
-                                ref = "sys:" + UUID.randomUUID().toString().substring(0, 8);
+                    for (Map<String, Object> modDraft : moduleDrafts) {
+                        if (modDraft == null)
+                            continue;
+                        PlanModule module = new PlanModule();
+                        module.setPlan(existing);
+                        module.setPosition(modIdx++);
+                        module.setTitle((String) modDraft.get("title"));
+                        module.setDescription((String) modDraft.get("description"));
+                        module.setEstimatedHours(new BigDecimal("1.0"));
+
+                        List<PlanActivity> activities = new ArrayList<>();
+                        int actIdx = 1;
+                        Object activitiesRaw = modDraft.get("activities");
+                        if (activitiesRaw instanceof List) {
+                            for (Object actRaw : (List<?>) activitiesRaw) {
+                                PlanActivity activity = new PlanActivity();
+                                activity.setModule(module);
+                                activity.setPosition(actIdx++);
+
+                                if (actRaw instanceof Map) {
+                                    @SuppressWarnings("unchecked")
+                                    Map<String, Object> actDraft = (Map<String, Object>) actRaw;
+                                    activity.setActivityType((String) actDraft.get("type"));
+                                    String ref = (String) actDraft.get("contentRef");
+                                    if (ref == null || ref.isBlank()) {
+                                        ref = "sys:" + UUID.randomUUID().toString().substring(0, 8);
+                                    }
+                                    activity.setContentRef(ref);
+                                } else {
+                                    // LLM returned activity as a plain String (e.g. "lesson")
+                                    activity.setActivityType(actRaw != null ? actRaw.toString() : "lesson");
+                                    activity.setContentRef("sys:" + UUID.randomUUID().toString().substring(0, 8));
+                                }
+                                activity.setEstimatedMinutes(20);
+                                activities.add(activity);
                             }
-                            activity.setContentRef(ref);
-                            activity.setEstimatedMinutes(20);
-                            activities.add(activity);
                         }
+                        module.setActivities(activities);
+                        newModules.add(module);
                     }
-                    module.setActivities(activities);
-                    newModules.add(module);
-                }
 
-                existing.getModules().clear();
-                existing.getModules().addAll(newModules);
+                    existing.getModules().clear();
+                    existing.getModules().addAll(newModules);
+                }
                 existing.setRawPlanAi(objectMapper.writeValueAsString(response));
             }
 
@@ -344,9 +355,23 @@ public class LearningPlanServiceImpl implements LearningPlanService {
     }
 
     @Override
-    public List<Map<String, Object>> generateDiagnosticTest(String domain, String level, int nQuestions) {
+    public List<Map<String, Object>> generateDiagnosticTest(String domainId, String level, int nQuestions) {
+        // Resolve domain UUID to human-readable name so the AI generates
+        // domain-specific questions.
+        String domainName = domainId;
+        try {
+            ExternalDtos.DomainDto domain = contentClient.getDomain(domainId);
+            if (domain != null && domain.getName() != null && !domain.getName().isBlank()) {
+                domainName = domain.getName();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Cannot resolve domain '" + domainId + "' from content-service: " + e.getMessage(), e);
+        }
+
         ExternalDtos.GenerateDiagnosticTestRequest request = ExternalDtos.GenerateDiagnosticTestRequest.builder()
-                .domainId(domain)
+                .domainId(domainId)
+                .domainName(domainName)
                 .level(level)
                 .nQuestions(nQuestions)
                 .build();

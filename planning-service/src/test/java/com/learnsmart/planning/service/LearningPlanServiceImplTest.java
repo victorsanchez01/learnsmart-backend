@@ -433,16 +433,23 @@ class LearningPlanServiceImplTest {
 
         when(planRepository.findById(id)).thenReturn(Optional.of(existing));
 
-        // AI returns a plan with 2 modules, each with 1 activity
-        ExternalDtos.ActivityDraft actDraft = new ExternalDtos.ActivityDraft("lesson", "content-ref-1");
-        ExternalDtos.ModuleDraft mod1 = new ExternalDtos.ModuleDraft("Module A", "Desc A", List.of(actDraft));
-        ExternalDtos.ModuleDraft mod2 = new ExternalDtos.ModuleDraft("Module B", "Desc B",
-                List.of(new ExternalDtos.ActivityDraft("practice", null))); // null ref → sys: fallback
-        ExternalDtos.PlanDraft planDraft = new ExternalDtos.PlanDraft("plan-1", List.of(mod1, mod2));
-        ExternalDtos.ReplanResponse aiResponse = new ExternalDtos.ReplanResponse(planDraft, "Reordered 2 modules");
+        // Build the plan as Map<String,Object> matching the new ReplanResponse.plan
+        // type
+        java.util.Map<String, Object> act1 = java.util.Map.of("type", "lesson", "contentRef", "content-ref-1");
+        java.util.Map<String, Object> act2 = java.util.Map.of("type", "practice"); // no contentRef → sys: fallback
+        java.util.Map<String, Object> mod1 = java.util.Map.of("title", "Module A", "description", "Desc A",
+                "activities", List.of(act1));
+        java.util.Map<String, Object> mod2 = new java.util.HashMap<>();
+        mod2.put("title", "Module B");
+        mod2.put("description", "Desc B");
+        mod2.put("activities", List.of(act2));
+        java.util.Map<String, Object> planMap = java.util.Map.of("modules", List.of(mod1, mod2));
+        ExternalDtos.ReplanResponse aiResponse = new ExternalDtos.ReplanResponse(planMap, "Reordered 2 modules");
 
         when(aiClient.replan(any(ExternalDtos.ReplanRequest.class))).thenReturn(aiResponse);
         when(replanRepository.save(any(PlanReplanHistory.class))).thenAnswer(i -> i.getArgument(0));
+        when(objectMapper.writeValueAsString(any())).thenReturn("{}");
+        when(planRepository.saveAndFlush(any(LearningPlan.class))).thenAnswer(i -> i.getArgument(0));
         when(planRepository.save(any(LearningPlan.class))).thenAnswer(i -> i.getArgument(0));
 
         LearningPlan result = planService.replan(id, "User requested changes", "{}");
@@ -451,9 +458,9 @@ class LearningPlanServiceImplTest {
         assertEquals(2, result.getModules().size(), "Replan must replace modules with AI result");
         assertEquals(1, result.getModules().get(0).getPosition());
         assertEquals(2, result.getModules().get(1).getPosition());
-        // Activity with null contentRef must fall back to a sys: prefix
+        // Activity with no contentRef must fall back to a sys: prefix
         assertTrue(result.getModules().get(1).getActivities().get(0).getContentRef().startsWith("sys:"),
-                "Null contentRef must be replaced with sys: fallback");
+                "Missing contentRef must be replaced with sys: fallback");
     }
 
     @Test

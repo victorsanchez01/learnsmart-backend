@@ -1,6 +1,7 @@
 package com.learnsmart.planning.controller;
 
 import com.learnsmart.planning.model.LearningPlan;
+import com.learnsmart.planning.dto.PlanDtos;
 import com.learnsmart.planning.service.LearningPlanService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -101,7 +102,7 @@ class LearningPlanControllerTest {
 
         when(planService.replan(id, "User requested", "{}")).thenReturn(plan);
 
-        ResponseEntity<LearningPlan> response = controller.replan(id, "User requested", "{}");
+        ResponseEntity<PlanDtos.PlanSummaryResponse> response = controller.replan(id, "User requested", "{}");
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
     }

@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import java.util.List;
-import java.util.UUID;
 
 public interface Clients {
 
@@ -26,6 +25,9 @@ public interface Clients {
     public interface ContentClient {
         @GetMapping("/content-items")
         List<ExternalDtos.ContentItemDto> getContentItems(@RequestParam(value = "size", defaultValue = "100") int size);
+
+        @GetMapping("/domains/{domainId}")
+        ExternalDtos.DomainDto getDomain(@PathVariable("domainId") String domainId);
     }
 
     @FeignClient(name = "ai-service", path = "/v1")

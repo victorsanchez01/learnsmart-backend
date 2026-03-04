@@ -48,6 +48,7 @@ class GeneratePlanResponse(BaseModel):
 
 class ReplanRequest(BaseModel):
     userId: str
+    reason: Optional[str] = None  # Reason for replan, e.g. 'Failed_Assessment'
     currentPlan: Dict[str, Any]
     recentEvents: List[Dict[str, Any]] = []
     updatedSkillState: List[Dict[str, Any]] = []
@@ -81,6 +82,7 @@ class FeedbackResponse(BaseModel):
 
 class GenerateDiagnosticTestRequest(BaseModel):
     domainId: str
+    domainName: Optional[str] = None  # Human-readable domain name for the AI prompt
     level: str = "BEGINNER"
     nQuestions: int = 5
 
@@ -131,7 +133,8 @@ def replan(request: ReplanRequest):
         result = llm_service.replan(
             current_plan=val_plan,
             recent_events=val_events,
-            skill_state=val_skill
+            skill_state=val_skill,
+            reason=request.reason or ""
         )
         return ReplanResponse(
             plan=result.get("plan", request.currentPlan),
@@ -215,13 +218,7 @@ def feedback(request: FeedbackRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-class GenerateDiagnosticTestRequest(BaseModel):
-    domainId: str
-    level: str = "BEGINNER"
-    nQuestions: int = 5
 
-class GenerateDiagnosticTestResponse(BaseModel):
-    questions: List[Dict[str, Any]]
 
 @app.post("/v1/assessments/diagnostic-tests", response_model=GenerateDiagnosticTestResponse)
 def generate_diagnostic_test(request: GenerateDiagnosticTestRequest):
@@ -231,6 +228,7 @@ def generate_diagnostic_test(request: GenerateDiagnosticTestRequest):
 
         result = llm_service.generate_diagnostic_test(
             domain=request.domainId,
+            domain_name=request.domainName or request.domainId,
             level=request.level,
             n_questions=request.nQuestions
         )

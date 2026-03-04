@@ -2,11 +2,13 @@ package com.learnsmart.planning.controller;
 
 import com.learnsmart.planning.model.LearningPlan;
 import com.learnsmart.planning.service.LearningPlanService;
+import com.learnsmart.planning.dto.PlanDtos;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import lombok.RequiredArgsConstructor;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 
 import com.learnsmart.planning.dto.ExternalDtos;
@@ -58,9 +60,38 @@ public class LearningPlanController {
     }
 
     @PostMapping("/{id}/replan")
-    public ResponseEntity<LearningPlan> replan(@PathVariable UUID id, @RequestParam String reason,
+    public ResponseEntity<PlanDtos.PlanSummaryResponse> replan(@PathVariable UUID id, @RequestParam String reason,
             @RequestBody(required = false) String constraints) {
-        return new ResponseEntity<>(planService.replan(id, reason, constraints), HttpStatus.OK);
+        LearningPlan updated = planService.replan(id, reason, constraints);
+        return new ResponseEntity<>(toSummary(updated), HttpStatus.OK);
+    }
+
+    private PlanDtos.PlanSummaryResponse toSummary(LearningPlan plan) {
+        PlanDtos.PlanSummaryResponse dto = new PlanDtos.PlanSummaryResponse();
+        dto.setId(plan.getId());
+        dto.setUserId(plan.getUserId());
+        dto.setGoalId(plan.getGoalId());
+        dto.setStatus(plan.getStatus());
+        dto.setGeneratedBy(plan.getGeneratedBy());
+        dto.setStartDate(plan.getStartDate());
+        dto.setEndDate(plan.getEndDate());
+        dto.setHoursPerWeek(plan.getHoursPerWeek());
+        dto.setRawPlanAi(plan.getRawPlanAi());
+        dto.setCreatedAt(plan.getCreatedAt());
+        dto.setUpdatedAt(plan.getUpdatedAt());
+        if (plan.getModules() != null) {
+            dto.setModules(plan.getModules().stream().map(m -> {
+                PlanDtos.PlanSummaryResponse.ModuleSummary ms = new PlanDtos.PlanSummaryResponse.ModuleSummary();
+                ms.setId(m.getId());
+                ms.setPosition(m.getPosition());
+                ms.setTitle(m.getTitle());
+                ms.setStatus(m.getStatus());
+                ms.setEstimatedHours(m.getEstimatedHours());
+                ms.setTargetSkills(m.getTargetSkills());
+                return ms;
+            }).collect(Collectors.toList()));
+        }
+        return dto;
     }
 
     @GetMapping("/{id}/replan-triggers")

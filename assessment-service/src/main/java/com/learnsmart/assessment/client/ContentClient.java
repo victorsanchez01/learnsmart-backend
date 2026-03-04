@@ -11,4 +11,7 @@ public interface ContentClient {
 
     @GetMapping("/skills/{id}")
     MasteryDtos.SkillInfo getSkill(@PathVariable("id") UUID id);
+
+    @GetMapping("/domains/{id}")
+    MasteryDtos.DomainInfo getDomain(@PathVariable("id") UUID id);
 }

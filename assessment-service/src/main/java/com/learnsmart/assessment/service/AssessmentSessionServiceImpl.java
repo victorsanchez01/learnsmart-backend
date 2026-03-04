@@ -22,6 +22,7 @@ public class AssessmentSessionServiceImpl implements AssessmentSessionService {
     private final UserSkillMasteryRepository masteryRepository;
     private final com.learnsmart.assessment.client.PlanningClient planningClient;
     private final com.learnsmart.assessment.client.AiClient aiClient;
+    private final com.learnsmart.assessment.client.ContentClient contentClient;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @Override
@@ -63,55 +64,112 @@ public class AssessmentSessionServiceImpl implements AssessmentSessionService {
     public AssessmentItem getNextItem(UUID sessionId) {
         AssessmentSession session = getSession(sessionId);
 
-        // 1. Prepare Context (History & Mastery)
-        // For simplicity, we fetch mastery for user and recent history
-        List<com.learnsmart.assessment.dto.AiDtos.NextItemRequest> skillState = new ArrayList<>(); // TODO: Map real
-                                                                                                   // mastery
+        if (session.getDomainId() == null) {
+            throw new IllegalStateException(
+                    "Session " + sessionId + " has no domainId — cannot select next assessment item");
+        }
+
+        // Build mastery state from existing mastery records for this user
+        List<java.util.Map<String, Object>> skillState = masteryRepository
+                .findByIdUserId(session.getUserId())
+                .stream()
+                .map(m -> {
+                    java.util.Map<String, Object> entry = new java.util.HashMap<>();
+                    entry.put("skillId", m.getId().getSkillId().toString());
+                    entry.put("mastery", m.getMastery());
+                    entry.put("attempts", m.getAttempts());
+                    return entry;
+                })
+                .collect(java.util.stream.Collectors.toList());
+
         List<java.util.Map<String, Object>> recentHistory = new ArrayList<>();
+
+        // Resolve domainId → human-readable name for the AI prompt (fail-fast: no
+        // fallback)
+        String domainName = contentClient.getDomain(session.getDomainId()).getName();
 
         com.learnsmart.assessment.dto.AiDtos.NextItemRequest request = com.learnsmart.assessment.dto.AiDtos.NextItemRequest
                 .builder()
                 .userId(session.getUserId().toString())
-                .domain("JAVA") // TODO: Get from Plan/Goal context
-                .skillState(new ArrayList<>())
+                .domain(domainName)
+                .skillState(skillState)
                 .recentHistory(recentHistory)
-                .excludeItemIds(session.getPresentedItemIds()) // US-0115
+                .excludeItemIds(session.getPresentedItemIds())
                 .build();
 
-        try {
-            // 2. Call AI Service
-            com.learnsmart.assessment.dto.AiDtos.NextItemResponse response = aiClient.getNextItem(request);
-            if (response != null && response.getItem() != null) {
-                // Map AI Item to Entity (Ephemeral or Persist?)
-                // Strategy: AI returns item definition. We persist it as a new AssessmentItem
-                // or find existing.
-                // MVP: If ID exists, use it. If not, create ephemeral/new.
-                // For safety in this MVP, we will try to find a real item in DB that matches
-                // criteria or just fallback.
+        // Call AI Service — no fallback; the AI must provide the item
+        com.learnsmart.assessment.dto.AiDtos.NextItemResponse response = aiClient.getNextItem(request);
 
-                // US-0115: Record presented item to prevent repetition
-                String itemIdStr = (String) response.getItem().get("id");
-                if (itemIdStr != null) {
-                    try {
-                        UUID itemId = UUID.fromString(itemIdStr);
-                        if (!session.getPresentedItemIds().contains(itemId)) {
-                            session.getPresentedItemIds().add(itemId);
-                            sessionRepository.save(session);
-                        }
-                        // Return the item found/created
-                        return itemRepository.findById(itemId).orElse(null); // Simple lookup for now
-                    } catch (Exception ex) {
-                        System.err.println("Error processing API item ID: " + ex.getMessage());
-                    }
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("AI Next Item failed: " + e.getMessage());
+        if (response == null || response.getItem() == null) {
+            throw new RuntimeException("AI service returned no item for session " + sessionId);
         }
 
-        // Fallback: Random Active Item
-        return itemRepository.findRandomActiveItem()
-                .orElseThrow(() -> new RuntimeException("No active assessment items found"));
+        java.util.Map<String, Object> aiItem = response.getItem();
+
+        // Try to reuse an existing item if the AI returned a known UUID
+        String returnedId = (String) aiItem.get("id");
+        if (returnedId != null) {
+            try {
+                UUID existingId = UUID.fromString(returnedId);
+                java.util.Optional<AssessmentItem> existing = itemRepository.findById(existingId);
+                if (existing.isPresent()) {
+                    trackPresentedItem(session, existingId);
+                    return existing.get();
+                }
+            } catch (IllegalArgumentException ignored) {
+                // ID is not a valid UUID — fall through to create a new item
+            }
+        }
+
+        // Persist AI-generated item so it can be referenced in responses
+        AssessmentItem generated = new AssessmentItem();
+        generated.setDomainId(session.getDomainId());
+        generated.setOrigin("ai");
+        generated.setType(aiItem.getOrDefault("type", "multiple_choice").toString());
+        generated.setStem(aiItem.getOrDefault("stem", "").toString());
+
+        Object difficultyRaw = aiItem.get("difficulty");
+        if (difficultyRaw != null) {
+            try {
+                generated.setDifficulty(new java.math.BigDecimal(difficultyRaw.toString()));
+            } catch (NumberFormatException ignored) {
+                generated.setDifficulty(new java.math.BigDecimal("0.5"));
+            }
+        } else {
+            generated.setDifficulty(new java.math.BigDecimal("0.5"));
+        }
+        generated.setIsActive(true);
+
+        // Persist options from AI response
+        Object optionsRaw = aiItem.get("options");
+        if (optionsRaw instanceof java.util.List) {
+            @SuppressWarnings("unchecked")
+            java.util.List<java.util.Map<String, Object>> optionsList = (java.util.List<java.util.Map<String, Object>>) optionsRaw;
+            java.util.List<AssessmentItemOption> options = new ArrayList<>();
+            for (java.util.Map<String, Object> opt : optionsList) {
+                AssessmentItemOption option = new AssessmentItemOption();
+                option.setAssessmentItem(generated);
+                option.setStatement(opt.getOrDefault("statement", "").toString());
+                option.setIsCorrect(Boolean.TRUE.equals(opt.get("isCorrect")));
+                Object feedback = opt.get("feedbackTemplate");
+                if (feedback != null) {
+                    option.setFeedbackTemplate(feedback.toString());
+                }
+                options.add(option);
+            }
+            generated.setOptions(options);
+        }
+
+        AssessmentItem saved = itemRepository.save(generated);
+        trackPresentedItem(session, saved.getId());
+        return saved;
+    }
+
+    private void trackPresentedItem(AssessmentSession session, UUID itemId) {
+        if (!session.getPresentedItemIds().contains(itemId)) {
+            session.getPresentedItemIds().add(itemId);
+            sessionRepository.save(session);
+        }
     }
 
     @Override

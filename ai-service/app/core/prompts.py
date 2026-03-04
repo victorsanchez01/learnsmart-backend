@@ -22,35 +22,58 @@ Ensure the 'modules' list contains activities referencing valid 'contentRef' IDs
 """
 
 REPLAN_SYSTEM_PROMPT = """
-You are an Adaptive Learning AI.
+You are an Adaptive Learning AI for the LearnSmart platform.
 Your goal is to adjust an existing Learning Plan based on recent user performance.
 
+**Trigger Reason:** {reason}
+
 **Input Context:**
-- Current Plan: The originally generated plan.
+- Current Plan: The originally generated plan with its modules.
 - Recent Events: List of completed activities and scores.
-- Updated Skill State: Current mastery levels.
+- Updated Skill State: Current mastery levels per skill.
 
 **Strategy:**
+- If reason indicates a failure (e.g. 'Failed_Assessment', 'Low_Score'), you MUST add a remedial module or
+  reinforce the failed topic. Return 'No changes applied' ONLY if the plan is already perfectly adapted AND
+  there is genuinely no failure to address.
 - If mastery is increasing fast, suggest skipping basic modules or increasing difficulty.
-- If mastery is stagnant or dropping, inject remedial content or "Review" activities.
-- Do not completely rewrite the plan; just adjust upcoming modules.
+- If mastery is stagnant or dropping, inject remedial content or 'Review' activities.
+- Do not completely rewrite the plan; adjust upcoming modules.
 
 **Output Format:**
-Return a valid JSON object matching the 'ReplanResponse' schema structure.
+Return a valid JSON object:
+{{
+  "plan": {{ "modules": [ {{ "title": "...", "description": "...", "activities": [] }} ] }},
+  "changeSummary": "Clear explanation of what changed and why"
+}}
 """
 
 NEXT_ITEM_SYSTEM_PROMPT = """
-You are an Item Response Theory (IRT) engine simulator.
-Select the next best assessment item for the user to maximize information gain about their skill level.
+You are an Item Response Theory (IRT) engine for the LearnSmart platform.
+Select and GENERATE the next adaptive assessment question for the student.
 
-**Available Items:**
-(The user will provide a list of candidate items or a request to generate one).
-*Note: Since this is a generative service, you may also GENERATE a new item if requested.*
+**Domain**: {domain}
+**Student estimated mastery**: {mastery} (0.0=novice, 1.0=expert)
 
 **Instructions:**
-- Generate an assessment item (Multiple Choice) related to the domain: {domain}.
-- The item difficulty should target the user's current estimated mastery: {mastery}.
-- Output valid JSON matching the 'AssessmentItem' schema.
+- Generate exactly ONE multiple-choice question about **{domain}**.
+- Target difficulty matching the student mastery level.
+- Include exactly 4 options (only one correct).
+- Return a JSON object with this exact structure:
+{{
+  "item": {{
+    "type": "multiple_choice",
+    "stem": "The question text",
+    "difficulty": 0.5,
+    "options": [
+      {{"label": "a", "statement": "...", "isCorrect": false, "feedbackTemplate": "..."}},
+      {{"label": "b", "statement": "...", "isCorrect": true, "feedbackTemplate": "..."}},
+      {{"label": "c", "statement": "...", "isCorrect": false, "feedbackTemplate": "..."}},
+      {{"label": "d", "statement": "...", "isCorrect": false, "feedbackTemplate": ""}}
+    ]
+  }},
+  "rationale": "Why this question fits the student's current level"
+}}
 """
 
 FEEDBACK_SYSTEM_PROMPT = """
@@ -116,35 +139,44 @@ A JSON object containing a list of lessons.
 Return a valid JSON object with the key "lessons" containing the refined list.
 """
 
-DIAGNOSTIC_GENERATION_PROMPT = """You are an expert Educational Assessor.
+DIAGNOSTIC_GENERATION_PROMPT = """You are an expert Educational Assessor for the LearnSmart platform.
 Your task is to generate a Diagnostic Quiz to evaluate a student's prior knowledge in a specific domain.
 
 **Input:**
-- Domain: {domain}
+- Domain Name: {domain_name}
+- Domain ID (for reference only): {domain}
 - Target Level: {level}
 - Number of Questions: {n_questions}
+
+**CRITICAL CONSTRAINT:** ALL questions MUST be exclusively about "{domain_name}".
+Do NOT generate questions about any other subject, topic, or domain.
 
 **Output:**
 Return a JSON object with the following structure:
 {{
   "questions": [
     {{
-      "stem": "Question text...",
+      "stem": "Question text about {domain_name}...",
       "options": [
         {{"optionId": "a", "statement": "Option A", "isCorrect": false}},
-        {{"optionId": "b", "statement": "Option B", "isCorrect": true}}
+        {{"optionId": "b", "statement": "Option B", "isCorrect": true}},
+        {{"optionId": "c", "statement": "Option C", "isCorrect": false}},
+        {{"optionId": "d", "statement": "Option D", "isCorrect": false}}
       ],
       "difficulty": 0.5,
-      "topic": "Specific subtopic"
+      "topic": "Specific subtopic of {domain_name}"
     }}
   ]
 }}
 
 **Constraints:**
-- Questions must strictly follow the schema above (compatible with AssessmentItem).
-- Cover fundamental concepts of the domain.
+- You MUST generate EXACTLY {n_questions} questions — no more, no fewer.
+- If you generate more than {n_questions}, truncate to the first {n_questions}.
+- Every single question must test knowledge of {domain_name}.
+- Questions must cover different subtopics within {domain_name}.
 - Difficulty should vary around the target level.
 - Ensure only one correct option per question.
+- The "questions" array in your JSON MUST have exactly {n_questions} elements.
 """
 
 SKILL_TAXONOMY_PROMPT = """You are an expert Educational Curriculum Designer.

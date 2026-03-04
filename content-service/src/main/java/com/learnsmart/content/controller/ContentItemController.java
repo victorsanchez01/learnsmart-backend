@@ -94,12 +94,22 @@ public class ContentItemController {
 
     @PostMapping("/{id}/skills")
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> addSkills(@PathVariable UUID id,
+    public ResponseEntity<?> addSkills(@PathVariable UUID id,
             @RequestBody List<ContentDtos.ContentItemSkillInput> inputs) {
-        List<UUID> ids = inputs.stream().map(ContentDtos.ContentItemSkillInput::getSkillId).toList();
-        List<Double> weights = inputs.stream().map(ContentDtos.ContentItemSkillInput::getWeight).toList();
-        contentService.updateSkillAssociations(id, ids, weights);
-        return ResponseEntity.ok().build();
+        if (inputs == null) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("error", "Skill inputs list cannot be null"));
+        }
+        try {
+            List<UUID> ids = inputs.stream().map(ContentDtos.ContentItemSkillInput::getSkillId).toList();
+            List<Double> weights = inputs.stream().map(ContentDtos.ContentItemSkillInput::getWeight).toList();
+            contentService.updateSkillAssociations(id, ids, weights);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(java.util.Map.of("error", "Error linking skills: " + e.getMessage(), "cause",
+                            String.valueOf(e.getCause())));
+        }
     }
 
     private ContentDtos.ContentItemResponse toDto(ContentItem item) {

@@ -72,6 +72,7 @@ public class ContentItemServiceImpl implements ContentItemService {
     @Override
     @Transactional
     public void delete(UUID id) {
+        contentItemSkillRepository.deleteByIdContentItemId(id);
         contentItemRepository.deleteById(id);
     }
 
@@ -79,20 +80,34 @@ public class ContentItemServiceImpl implements ContentItemService {
     @Transactional
     public void updateSkillAssociations(UUID contentItemId, List<UUID> skillIds, List<Double> weights) {
         ContentItem item = contentItemRepository.findById(contentItemId)
-                .orElseThrow(() -> new RuntimeException("ContentItem not found"));
+                .orElseThrow(() -> new RuntimeException("ContentItem not found: " + contentItemId));
 
-        for (int i = 0; i < skillIds.size(); i++) {
-            UUID skillId = skillIds.get(i);
-            Double weight = weights.get(i);
-            Skill skill = skillRepository.findById(skillId)
-                    .orElseThrow(() -> new RuntimeException("Skill not found: " + skillId));
+        // CRITICAL: Clear existing associations first to avoid PK violations
+        contentItemSkillRepository.deleteByIdContentItemId(contentItemId);
+        contentItemSkillRepository.flush();
 
-            ContentItemSkill cis = new ContentItemSkill();
-            cis.setId(new ContentItemSkill.ContentItemSkillId(contentItemId, skillId));
-            cis.setContentItem(item);
-            cis.setSkill(skill);
-            cis.setWeight(BigDecimal.valueOf(weight));
-            contentItemSkillRepository.save(cis);
+        if (skillIds != null && !skillIds.isEmpty()) {
+            for (int i = 0; i < skillIds.size(); i++) {
+                UUID skillId = skillIds.get(i);
+                if (skillId == null)
+                    continue;
+
+                Double weightVal = (weights != null && weights.size() > i) ? weights.get(i) : 1.0;
+                if (weightVal == null)
+                    weightVal = 1.0;
+                BigDecimal weight = BigDecimal.valueOf(weightVal);
+
+                com.learnsmart.content.model.Skill skill = skillRepository.findById(skillId)
+                        .orElseThrow(() -> new RuntimeException("Skill not found: " + skillId));
+
+                ContentItemSkill cis = new ContentItemSkill();
+                cis.setId(new ContentItemSkill.ContentItemSkillId(contentItemId, skillId));
+                cis.setContentItem(item);
+                cis.setSkill(skill);
+                cis.setWeight(weight);
+                contentItemSkillRepository.save(cis);
+            }
+            contentItemSkillRepository.flush();
         }
     }
 
@@ -199,7 +214,7 @@ public class ContentItemServiceImpl implements ContentItemService {
             cis.setContentItem(item);
             cis.setSkill(skill);
             cis.setWeight(BigDecimal.valueOf(1.0)); // Default weight
-            contentItemSkillRepository.save(cis);
+            contentItemSkillRepository.saveAndFlush(cis);
         }
 
         return matchedSkills;

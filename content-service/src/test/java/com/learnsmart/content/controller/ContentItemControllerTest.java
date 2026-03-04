@@ -19,6 +19,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -158,17 +159,18 @@ class ContentItemControllerTest {
     }
 
     @Test
-    void testAddSkills() {
-        UUID id = UUID.randomUUID();
-        ContentDtos.ContentItemSkillInput skillInput = new ContentDtos.ContentItemSkillInput();
-        skillInput.setSkillId(UUID.randomUUID());
-        skillInput.setWeight(0.5);
+    void addSkills_withValidInput_shouldReturnOk() {
+        UUID contentItemId = UUID.randomUUID();
+        ContentDtos.ContentItemSkillInput input = new ContentDtos.ContentItemSkillInput();
+        input.setSkillId(UUID.randomUUID());
+        input.setWeight(1.0);
 
-        doNothing().when(contentService).updateSkillAssociations(eq(id), anyList(), anyList());
+        // Assuming controller.addSkills returns ResponseEntity<?> based on typical
+        // REST API patterns for successful updates
+        ResponseEntity<?> response = controller.addSkills(contentItemId, Arrays.asList(input));
 
-        ResponseEntity<Void> response = controller.addSkills(id, List.of(skillInput));
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(contentService).updateSkillAssociations(eq(id), anyList(), anyList());
+        verify(contentService).updateSkillAssociations(eq(contentItemId), anyList(), anyList());
     }
 
     // -------------------------------------------------------------------------

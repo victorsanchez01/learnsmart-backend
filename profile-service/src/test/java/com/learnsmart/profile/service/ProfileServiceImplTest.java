@@ -148,7 +148,7 @@ class ProfileServiceImplTest {
     void testGetProfileByAuthId_Found() {
         String authId = "auth-123";
         UserProfile profile = UserProfile.builder().authUserId(authId).build();
-        when(profileRepository.findByAuthUserId(authId)).thenReturn(Optional.of(profile));
+        when(profileRepository.findFirstByAuthUserId(authId)).thenReturn(Optional.of(profile));
 
         UserProfileResponse response = profileService.getProfileByAuthId(authId);
         assertEquals(authId, response.getAuthUserId());
@@ -157,7 +157,7 @@ class ProfileServiceImplTest {
     @Test
     void testGetProfileByAuthId_NotFound() {
         String authId = "auth-123";
-        when(profileRepository.findByAuthUserId(authId)).thenReturn(Optional.empty());
+        when(profileRepository.findFirstByAuthUserId(authId)).thenReturn(Optional.empty());
         assertThrows(IllegalArgumentException.class, () -> profileService.getProfileByAuthId(authId));
     }
 

@@ -22,8 +22,18 @@ public class ProgressService {
     private final TrackingClient trackingClient;
 
     public UserProgressResponse getConsolidatedProgress(String authUserId) {
-        UserProfile profile = profileRepository.findByAuthUserId(authUserId)
+        UserProfile profile = profileRepository.findFirstByAuthUserId(authUserId)
                 .orElseThrow(() -> new RuntimeException("Profile not found for authUserId: " + authUserId));
+        return getConsolidatedProgressForProfile(profile);
+    }
+
+    public UserProgressResponse getConsolidatedProgressByInternalId(UUID userId) {
+        UserProfile profile = profileRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Profile not found for userId: " + userId));
+        return getConsolidatedProgressForProfile(profile);
+    }
+
+    private UserProgressResponse getConsolidatedProgressForProfile(UserProfile profile) {
 
         UserProgressResponse res = new UserProgressResponse();
         res.setProfile(new ProfileInfo(profile.getUserId().toString(), profile.getDisplayName()));

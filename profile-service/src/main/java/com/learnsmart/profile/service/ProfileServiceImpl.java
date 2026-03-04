@@ -81,7 +81,7 @@ public class ProfileServiceImpl {
 
     @Transactional(readOnly = true)
     public UserProfileResponse getProfileByAuthId(String authUserId) {
-        return profileRepository.findByAuthUserId(authUserId)
+        return profileRepository.findFirstByAuthUserId(authUserId)
                 .map(this::mapToProfileResponse)
                 .orElseThrow(() -> new IllegalArgumentException("User not found for authUserId: " + authUserId));
     }

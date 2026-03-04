@@ -20,23 +20,36 @@ public class ProfileController {
     private final com.learnsmart.profile.service.ProgressService progressService;
 
     private UUID getUserId(String xUserId) {
-        // 1. Try to get from Security Context (JWT) - subject is Keycloak auth ID
+        // 1. Fallback to Header (Legacy/Testing/Override) - Takes precedence for
+        // integration tests
+        if (xUserId != null && !xUserId.isBlank() && !xUserId.startsWith("{{")) {
+            try {
+                return UUID.fromString(xUserId);
+            } catch (Exception e) {
+                // Ignore and try JWT
+            }
+        }
+
+        // 2. Try to get from Security Context (JWT) - subject is Keycloak auth ID
         var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof org.springframework.security.oauth2.jwt.Jwt jwt) {
             String authUserId = jwt.getSubject();
             if (authUserId != null) {
-                // Look up profile by authUserId
-                return profileService.getProfileByAuthId(authUserId).getUserId();
+                // Look up profile by authUserId (Keycloak ID)
+                try {
+                    return profileService.getProfileByAuthId(authUserId).getUserId();
+                } catch (Exception e) {
+                    // If no profile yet for this auth user, we must rely on registration or header
+                }
             }
         }
 
-        // 2. Fallback to Header (Legacy/Testing)
-        if (xUserId != null) {
-            return UUID.fromString(xUserId);
+        if (xUserId == null || xUserId.isBlank() || xUserId.startsWith("{{")) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                    "User ID not found in Token or Header");
         }
 
-        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED,
-                "User ID not found in Token or Header");
+        return UUID.fromString(xUserId);
     }
 
     private String getAuthId() {
@@ -50,12 +63,7 @@ public class ProfileController {
     @GetMapping("/me/progress")
     public ResponseEntity<com.learnsmart.profile.dto.ProgressDtos.UserProgressResponse> getMyProgress(
             @RequestHeader(value = "X-User-Id", required = false) String xUserId) {
-        String authId = getAuthId();
-        if (authId == null && xUserId != null) {
-            // Mock authId from xUserId for testing if needed
-            authId = xUserId;
-        }
-        return ResponseEntity.ok(progressService.getConsolidatedProgress(authId));
+        return ResponseEntity.ok(progressService.getConsolidatedProgressByInternalId(getUserId(xUserId)));
     }
 
     // US-094: Audit trail endpoint

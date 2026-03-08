@@ -30,24 +30,20 @@ public class ProfileServiceImpl {
     private final UserStudyPreferencesRepository preferencesRepository;
     private final AuditService auditService;
     private final com.learnsmart.profile.client.ContentServiceClient contentClient;
+    private final KeycloakAdminService keycloakAdminService;
 
     @Transactional
     public UserProfileResponse registerUser(UserRegistrationRequest request) {
-        // Extract auth user ID from JWT token (if available)
-        String authUserId = null;
-        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof org.springframework.security.oauth2.jwt.Jwt jwt) {
-            authUserId = jwt.getSubject();
-        }
-
-        // Fallback to simulated ID if no JWT present (for testing/legacy)
-        if (authUserId == null) {
-            authUserId = UUID.randomUUID().toString();
-        }
-
         if (profileRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new IllegalArgumentException("Email already exists");
         }
+
+        // Create user in Keycloak first to get the authUserId
+        String authUserId = keycloakAdminService.createUser(
+                request.getEmail(),
+                request.getPassword(),
+                request.getDisplayName()
+        );
 
         UserProfile profile = UserProfile.builder()
                 .userId(UUID.randomUUID())

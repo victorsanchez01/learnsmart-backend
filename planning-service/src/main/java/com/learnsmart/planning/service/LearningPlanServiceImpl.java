@@ -63,11 +63,29 @@ public class LearningPlanServiceImpl implements LearningPlanService {
                         });
                 aiRequest.setProfile(profileMap);
 
+                // Resolve domain name from domainId (if provided) instead of hardcoding
+                String domainName = "general";
+                if (plan.getDomainId() != null && !plan.getDomainId().isBlank()) {
+                    try {
+                        ExternalDtos.DomainDto domain = contentClient.getDomain(plan.getDomainId());
+                        if (domain != null && domain.getName() != null && !domain.getName().isBlank()) {
+                            domainName = domain.getName();
+                        }
+                    } catch (Exception domainEx) {
+                        System.err.println("Could not resolve domain name for id: " + plan.getDomainId()
+                                + " — " + domainEx.getMessage());
+                    }
+                }
+
+                // Use plan name or goal title if available
+                String planTitle = plan.getPlanName() != null && !plan.getPlanName().isBlank()
+                        ? plan.getPlanName() : "Learning Plan for " + domainName;
+
                 // Goals
                 aiRequest.setGoals(List.of(Map.of(
                         "goalId", plan.getGoalId() != null ? plan.getGoalId() : "general-learning",
-                        "title", "Custom Plan",
-                        "domain", "backend" // Heuristic default
+                        "title", planTitle,
+                        "domain", domainName
                 )));
 
                 // Convert Content Catalog to Map List

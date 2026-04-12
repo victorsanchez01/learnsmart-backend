@@ -33,6 +33,12 @@ public class LearningPlan {
     @Column(name = "goal_id")
     private String goalId;
 
+    @Column(name = "domain_id")
+    private String domainId;
+
+    @Column(name = "plan_name")
+    private String planName;
+
     @Column(nullable = false, length = 20)
     private String status = "active";
 

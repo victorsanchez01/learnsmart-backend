@@ -53,7 +53,7 @@ class TestInputValidator(unittest.TestCase):
 
     def test_length_limit(self):
         """Test that long inputs are rejected."""
-        long_text = "a" * 2005
+        long_text = "a" * 4005
         with self.assertRaises(HTTPException) as cm:
             InputValidator.validate_text(long_text)
         self.assertEqual(cm.exception.status_code, 400)

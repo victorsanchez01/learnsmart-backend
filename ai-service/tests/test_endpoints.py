@@ -7,9 +7,13 @@ import os
 # Add app to path
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
+import warnings
 from app.main import app
 
-client = TestClient(app)
+# Silence httpx deprecation warning until FastAPI updates TestClient internally
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=DeprecationWarning, module="httpx")
+    client = TestClient(app)
 
 @pytest.fixture
 def mock_llm_service():
@@ -64,7 +68,7 @@ def test_generate_plan_with_injection_attempt(mock_llm_service):
 def test_replan_success(mock_llm_service):
     """Test successful replan"""
     mock_llm_service.replan.return_value = {
-        "plan": {"planId": "updated-plan"},
+        "plan": {"planId": "updated-plan", "modules": []},
         "changeSummary": "Updated based on progress"
     }
     
@@ -162,7 +166,7 @@ def test_generate_lessons_success(mock_llm_service):
 def test_generate_lessons_with_long_domain():
     """Test that invalid domain ID is rejected"""
     request_data = {
-        "domainId": "a" * 2500,  # Exceeds MAX_TEXT_LENGTH and regex
+        "domainId": "a" * 5000,  # Exceeds current MAX_TEXT_LENGTH (4000)
         "nLessons": 1,
         "locale": "es-ES"
     }

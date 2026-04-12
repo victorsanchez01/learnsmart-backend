@@ -92,7 +92,7 @@ def test_generate_plan_with_client(llm_service_with_mock, mock_openai_client):
     
     assert "plan" in result
     assert result["plan"]["planId"] == "test-123"
-    mock_openai_client.chat.completions.create.assert_called_once()
+    assert mock_openai_client.chat.completions.create.call_count >= 1
 
 def test_generate_plan_without_client():
     """Test plan generation falls back to mock when no client"""

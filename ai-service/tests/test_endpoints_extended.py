@@ -18,9 +18,12 @@ import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
+import warnings
 from app.main import app
 
-client = TestClient(app)
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=DeprecationWarning, module="httpx")
+    client = TestClient(app)
 
 
 @pytest.fixture

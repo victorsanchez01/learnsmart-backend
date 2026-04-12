@@ -1,0 +1,13 @@
+# //
+# //  .pre-commit-config.yaml
+# //  TFM Backend
+# //
+# //  Created by Victor Sanchez on Jan 12, 2026.
+# //  Copyright © 2026 Victor Sanchez. All rights reserved.
+# //
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: check-case-conflict

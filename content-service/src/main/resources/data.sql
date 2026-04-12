@@ -15,11 +15,11 @@ VALUES
 ON CONFLICT (domain_id, code) DO NOTHING;
 
 -- Content Items
-INSERT INTO content_items (id, domain_id, type, title, description, estimated_minutes, difficulty, is_active, created_at, updated_at)
+INSERT INTO content_items (id, domain_id, type, title, description, estimated_minutes, difficulty, metadata, is_active, created_at, updated_at)
 VALUES
-('550e8400-e29b-41d4-a716-446655440201', '550e8400-e29b-41d4-a716-446655440000', 'ARTICLE', 'Introduction to Java', 'A comprehensive guide to Java syntax.', 15, 0.2, true, NOW(), NOW()),
-('550e8400-e29b-41d4-a716-446655440202', '550e8400-e29b-41d4-a716-446655440000', 'VIDEO', 'Spring Boot Setup', 'Video tutorial on setting up a Spring Boot project.', 20, 0.4, true, NOW(), NOW()),
-('550e8400-e29b-41d4-a716-446655440203', '550e8400-e29b-41d4-a716-446655440100', 'ARTICLE', 'React Components 101', 'Understanding functional components.', 10, 0.3, true, NOW(), NOW())
+('550e8400-e29b-41d4-a716-446655440201', '550e8400-e29b-41d4-a716-446655440000', 'ARTICLE', 'Introducción a Java', 'Guía completa de la sintaxis de Java y los fundamentos de la programación orientada a objetos.', 15, 0.2, '{"thumbnail": "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=640&q=80", "tags": ["java", "programacion", "principiantes"]}', true, NOW(), NOW()),
+('550e8400-e29b-41d4-a716-446655440202', '550e8400-e29b-41d4-a716-446655440000', 'VIDEO', 'Configuración de Spring Boot', 'Tutorial en video sobre cómo configurar un proyecto Spring Boot con APIs REST e integración de base de datos.', 20, 0.4, '{"thumbnail": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=640&q=80", "tags": ["spring", "backend", "microservicios"]}', true, NOW(), NOW()),
+('550e8400-e29b-41d4-a716-446655440203', '550e8400-e29b-41d4-a716-446655440100', 'ARTICLE', 'Componentes de React 101', 'Aprende a crear componentes funcionales, trabajar con props y componer interfaces en React.', 10, 0.3, '{"thumbnail": "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=640&q=80", "tags": ["react", "frontend", "javascript"]}', true, NOW(), NOW())
 ON CONFLICT (id) DO NOTHING;
 
 -- Map Content to Skills

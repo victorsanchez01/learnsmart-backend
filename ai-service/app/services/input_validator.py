@@ -1,7 +1,7 @@
 import re
 from fastapi import HTTPException
 
-# Keywords often used in Jailbreak attempts
+# Keywords often used in Jailbreak attempts or to bypass system instructions
 BLOCKED_PHRASES = [
     "ignore previous instructions",
     "system prompt",
@@ -9,10 +9,16 @@ BLOCKED_PHRASES = [
     "dan mode",
     "developer mode",
     "act as a",
+    "disregard all previous",
+    "forget everything",
+    "new rules:",
+    "you must now",
+    "bypass safety",
+    "jailbreak",
 ]
 
 # Max length for free-text fields to prevent token exhaustion or buffer overflows
-MAX_TEXT_LENGTH = 2000
+MAX_TEXT_LENGTH = 4000
 
 class InputValidator:
     """
@@ -24,7 +30,7 @@ class InputValidator:
         """
         Validates a single string.
         Raises HTTPException if blocked phrases are found or length is exceeded.
-        Returns the sanitized text.
+        Returns the sanitized text (escaped XML/HTML).
         """
         if not text:
             return ""
@@ -37,21 +43,32 @@ class InputValidator:
             if phrase in lower_text:
                 # Log security event here in a real system
                 print(f"SECURITY ALERT: Blocked phrase '{phrase}' detected in {context}.")
-                raise HTTPException(status_code=400, detail="Input contains prohibited content.")
+                raise HTTPException(status_code=400, detail="Input contains prohibited content or potential injection attempts.")
 
-        # Basic sanitization: strip XML-like tags to prevent interfering with our own delimiters
-        # We replace < and > with HTML entities or just remove them if strictly text
-        # For now, let's just escape them to be safe.
-        sanitized = text.replace("<", "&lt;").replace(">", "&gt;")
+        # Robust sanitization: escape XML/HTML special characters
+        # This prevents the user from closing our XML tags <user_content>...</user_content>
+        sanitized = (text.replace("&", "&amp;")
+                        .replace("<", "&lt;")
+                        .replace(">", "&gt;")
+                        .replace('"', "&quot;")
+                        .replace("'", "&apos;"))
         
         return sanitized
+
+    @staticmethod
+    def xml_wrap(tag: str, content: str) -> str:
+        """
+        Safely wraps content in XML tags, sanitizing the content first.
+        """
+        sanitized_content = InputValidator.validate_text(content, context=tag)
+        return f"<{tag}>\n{sanitized_content}\n</{tag}>"
 
     @staticmethod
     def validate_obj(obj: any, depth=0):
         """
         Recursively validates strings within a dictionary or list.
         """
-        if depth > 5: # Prevent infinite recursion
+        if depth > 10: # Increased depth for complex objects
             return obj
 
         if isinstance(obj, str):

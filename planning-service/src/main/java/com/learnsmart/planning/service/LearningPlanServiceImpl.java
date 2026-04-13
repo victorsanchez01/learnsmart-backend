@@ -81,11 +81,16 @@ public class LearningPlanServiceImpl implements LearningPlanService {
                 String planTitle = plan.getPlanName() != null && !plan.getPlanName().isBlank()
                         ? plan.getPlanName() : "Learning Plan for " + domainName;
 
-                // Goals
+                // Goals — incluir nivel actual detectado por test diagnóstico
+                String currentLevel = plan.getCurrentLevel() != null
+                        && !plan.getCurrentLevel().isBlank()
+                        ? plan.getCurrentLevel() : "UNKNOWN";
+
                 aiRequest.setGoals(List.of(Map.of(
                         "goalId", plan.getGoalId() != null ? plan.getGoalId() : "general-learning",
                         "title", planTitle,
-                        "domain", domainName
+                        "domain", domainName,
+                        "currentLevel", currentLevel
                 )));
 
                 // Convert Content Catalog to Map List

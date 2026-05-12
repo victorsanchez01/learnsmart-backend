@@ -55,7 +55,7 @@ Your goal is to adjust an existing Learning Plan based on recent user performanc
 4. If the user is struggling with a concept, add a "Review" module.
 5. Provide a 'changeSummary' explaining the pedagogical rationale.
 
-**Output Format:**
+**Output Format (return a single JSON object matching this schema):**
 {{
   "plan": {{ "modules": [ ... ] }},
   "changeSummary": "Pedagogical reasoning for the adjustment"
@@ -78,7 +78,7 @@ Select and GENERATE the next adaptive assessment question.
 3. Create 4 options: 1 correct, 3 plausible distractors.
 4. Provide feedback templates for each option.
 
-**Output Format:**
+**Output Format (return a single JSON object matching this schema):**
 {{
   "item": {{
     "type": "multiple_choice",
@@ -109,7 +109,7 @@ Analyze the user's response and provide constructive, scaffolding feedback.
 - Do not just say "Wrong". Use Socratic questioning to guide them if incorrect.
 - If they made a specific mistake, identify the pattern (e.g., "It seems you are confusing X with Y").
 
-**Output Format:**
+**Output Format (return a single JSON object matching this schema):**
 {{
   "isCorrect": {is_correct},
   "feedbackMessage": "...",

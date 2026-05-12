@@ -33,6 +33,15 @@ public class LearningPlan {
     @Column(name = "goal_id")
     private String goalId;
 
+    @Column(name = "domain_id")
+    private String domainId;
+
+    @Column(name = "plan_name")
+    private String planName;
+
+    @Column(name = "current_level", length = 20)
+    private String currentLevel; // BEGINNER | INTERMEDIATE | ADVANCED — del test diagnóstico
+
     @Column(nullable = false, length = 20)
     private String status = "active";
 

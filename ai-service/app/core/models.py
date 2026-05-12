@@ -58,10 +58,17 @@ class NextItemRequest(BaseModel):
     contextText: Optional[str] = None
 
 class AssessmentOption(BaseModel):
-    optionId: str
-    statement: str
-    isCorrect: bool
+    # The LLM is asked to produce pedagogical content only; identifiers are the
+    # responsibility of the consuming service (assessment-service assigns UUIDs
+    # at persist time). We therefore accept the LLM's natural output shape
+    # (label + feedbackTemplate) and keep optionId/feedback optional so callers
+    # that already provide UUIDs continue to work.
+    optionId: Optional[str] = None
+    label: Optional[str] = None
+    statement: str = ""
+    isCorrect: bool = False
     feedback: Optional[str] = None
+    feedbackTemplate: Optional[str] = None
 
 class AssessmentItem(BaseModel):
     type: str = "multiple_choice"

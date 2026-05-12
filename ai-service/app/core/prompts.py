@@ -37,7 +37,9 @@ Your goal is to generate a personalized Learning Plan based on the user's profil
 }
 
 **Constraints:**
-- Use ONLY 'contentRef' IDs present in the provided catalog.
+- If the content catalog is non-empty, prefer using 'contentRef' IDs from it.
+- If the catalog is empty or no item fits, set contentRef to "manual:<short-slug>" (e.g. "manual:intro-variables").
+- ALWAYS generate at least 3 modules with at least 2 activities each, regardless of catalog size.
 - Return ONLY the JSON object.
 """
 

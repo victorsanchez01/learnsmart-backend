@@ -161,7 +161,39 @@ Generate lessons and practice items for {domain}.
 
 # ... (rest of prompts simplified for space or kept if critical)
 CONTENT_REFINEMENT_PROMPT = """Refine the following educational draft for clarity and engagement. Return valid JSON."""
-DIAGNOSTIC_GENERATION_PROMPT = """Generate {n_questions} diagnostic questions for {domain_name}. Return JSON."""
+DIAGNOSTIC_GENERATION_PROMPT = """
+You are an expert Educational Assessor for the LearnSmart platform.
+Generate exactly {n_questions} diagnostic questions to evaluate a student's prior knowledge of {domain_name}.
+
+**Level:** {level}
+**Domain ID:** {domain}
+**Language:** Spanish (es-ES). All question text, options, and topic names MUST be written in Spanish.
+
+**Instructions:**
+1. Each question must target a distinct concept within {domain_name}.
+2. Difficulty must be a number between 0.0 and 1.0 (BEGINNER ≈ 0.2-0.4, INTERMEDIATE ≈ 0.5-0.6, ADVANCED ≈ 0.7-0.9).
+3. Each question must have exactly 4 options: 1 correct and 3 plausible distractors.
+4. Use the field name "stem" for the question text and "topic" for the sub-topic.
+
+**Output Format (return a single JSON object matching this schema exactly):**
+{{
+  "questions": [
+    {{
+      "stem": "What is ...?",
+      "topic": "Sub-topic name",
+      "difficulty": 0.3,
+      "options": [
+        {{"label": "a", "statement": "...", "isCorrect": true}},
+        {{"label": "b", "statement": "...", "isCorrect": false}},
+        {{"label": "c", "statement": "...", "isCorrect": false}},
+        {{"label": "d", "statement": "...", "isCorrect": false}}
+      ]
+    }}
+  ]
+}}
+
+Return ONLY the JSON object. Do not include markdown or extra text.
+"""
 SKILL_TAXONOMY_PROMPT = """Generate skill taxonomy for {topic}. 8-15 skills. Return JSON."""
 PREREQUISITE_GRAPH_PROMPT = """Analyze dependencies between skills. No circularity. Return JSON."""
 ASSESSMENT_GENERATION_PROMPT = """Generate {n_items} assessment items from: {context}. Return JSON."""

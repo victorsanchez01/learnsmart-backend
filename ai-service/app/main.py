@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 import py_eureka_client.eureka_client as eureka_client
 import os
 import asyncio
+import socket
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -10,19 +11,17 @@ async def lifespan(app: FastAPI):
     eureka_server = os.getenv("EUREKA_URL", "http://eureka:8761/eureka/")
     instance_port = int(os.getenv("PORT", 8000))
     app_name = "ai-service"
-    # Resolvable hostname for inter-service discovery (e.g. Railway internal DNS).
-    # py_eureka_client does NOT read EUREKA_INSTANCE_HOSTNAME by itself, so we
-    # forward it explicitly; without this it registers a non-resolvable hostname.
-    instance_host = os.getenv("EUREKA_INSTANCE_HOSTNAME")
+    # Prefer explicit hostname (Railway) or fall back to container IP so other
+    # services can always resolve us — container hostnames change on every rebuild.
+    instance_host = os.getenv("EUREKA_INSTANCE_HOSTNAME") or socket.gethostbyname(socket.gethostname())
 
-    print(f"Stats Eureka Client: {eureka_server} for {app_name}:{instance_port} host={instance_host or 'auto'}")
+    print(f"Stats Eureka Client: {eureka_server} for {app_name}:{instance_port} host={instance_host}")
     init_kwargs = {
         "eureka_server": eureka_server,
         "app_name": app_name,
         "instance_port": instance_port,
+        "instance_host": instance_host,
     }
-    if instance_host:
-        init_kwargs["instance_host"] = instance_host
     await eureka_client.init_async(**init_kwargs)
     yield
     # Stop Eureka Client

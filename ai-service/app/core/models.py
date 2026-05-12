@@ -1,6 +1,35 @@
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Dict, Any
+
+# Level→numeric difficulty mapping used to defend against LLM responses that
+# return categorical levels (e.g. "BEGINNER") where a 0.0-1.0 difficulty is
+# expected. Keep this map lower-cased; lookups normalise the input.
+_LEVEL_TO_DIFFICULTY = {
+    "beginner": 0.3,
+    "intermediate": 0.5,
+    "advanced": 0.8,
+    "easy": 0.2,
+    "medium": 0.5,
+    "hard": 0.8,
+}
+
+
+def _coerce_difficulty(v):
+    """Best-effort conversion of the LLM's difficulty field into a float in
+    [0.0, 1.0]. Accepts already-numeric values, numeric strings, and the
+    well-known level keywords. Falls back to 0.5 if unparseable."""
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, str):
+        mapped = _LEVEL_TO_DIFFICULTY.get(v.strip().lower())
+        if mapped is not None:
+            return mapped
+        try:
+            return float(v)
+        except ValueError:
+            return 0.5
+    return 0.5
 
 # --- AI Workflow Models (Internal Contract) ---
 class ActivityDraft(BaseModel):
@@ -121,6 +150,11 @@ class Lesson(BaseModel):
     estimatedMinutes: int = 10
     difficulty: float = 0.5
     type: str = "lesson"
+
+    @field_validator("difficulty", mode="before")
+    @classmethod
+    def _coerce_difficulty(cls, v):
+        return _coerce_difficulty(v)
 
 class GenerateContentResponse(BaseModel):
     lessons: List[Lesson] = Field(default_factory=list)

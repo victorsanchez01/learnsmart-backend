@@ -149,13 +149,14 @@ Generate lessons and practice items for {domain}.
 **Level:** {level}
 
 **Structure:**
-- Return JSON with "lessons" array.
+- Return a JSON object with a "lessons" array.
 - Each lesson MUST have 'title', 'description', 'body' (Markdown), 'difficulty', 'estimatedMinutes'.
+- 'difficulty' MUST be a NUMBER between 0.0 (easiest) and 1.0 (hardest). NEVER use category strings here.
 
 **CoT Instruction:**
 1. Break down {domain} into {n_lessons} sub-concepts.
 2. For each sub-concept, write a clear Markdown lesson.
-3. Ensure difficulty stays close to {level}.
+3. Set numeric 'difficulty' inside the range that matches {level}: BEGINNER ≈ 0.2-0.4, INTERMEDIATE ≈ 0.4-0.6, ADVANCED ≈ 0.7-0.9.
 """
 
 # ... (rest of prompts simplified for space or kept if critical)
